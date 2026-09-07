@@ -1,0 +1,13 @@
+# Scratch and local-only
+*.log
+.DS_Store
+Thumbs.db
+node_modules/
+.tmp/
+scratch/
+
+# Never commit secrets
+.env
+.env.*
+*.key
+*.pem
