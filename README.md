@@ -38,6 +38,37 @@ Full detail in [GDD.md](GDD.md). The guardrail for any new feature: *does this m
 physics puzzle more interesting without making the controls significantly more
 complicated?*
 
+## Tests
+
+Two gates, because they answer different questions.
+
+**Static** — syntax, content integrity, every camera in range, GDD and level data
+still agreeing. 115 assertions, runs in under a second:
+
+```bash
+node tools/check.mjs
+```
+
+**In the page** — the things that need a real physics world, where a lie is
+invisible to a parser. Open the game and run it in the console:
+
+```js
+await BS.all()
+```
+
+- `settleTest()` — every level stands still on its own for two seconds: all parts
+  intact, all cameras alive, world asleep. This is what catches an impact floor
+  set too low, and the failure it prevents (a level that loses itself on load) is
+  one nobody would diagnose from the symptom.
+- `previewTest()` — the dotted aim arc *is* the flight path. Currently 0.000 px
+  of error over 40 samples.
+- `solveTest()` — sweeps angles and powers to find the fewest shots that clear
+  each level. A par nobody has hit is a guess. This is the test that found level
+  6 unwinnable: 150 scripted shots, zero kills.
+
+`BS.headless(n)`, `BS.aim(deg, pull)`, `BS.fire(vx, vy, steps)` and `BS.tick(n)`
+drive the simulation directly, which is how you pose a collapse and look at it.
+
 ## Status
 
 Milestone 1 — the vertical slice. Region 1 (Porto Vela), one rebel (Nico), one tool
