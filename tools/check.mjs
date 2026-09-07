@@ -60,13 +60,13 @@ section('B. Level content');
 const block = html.match(/==== LEVELS:BEGIN ====[\s\S]*?\n([\s\S]*?)\/\* ==== LEVELS:END ====/);
 ok(!!block, 'LEVELS block found between its markers');
 const LEVELS = new Function(block[1] + '\nreturn LEVELS;')();
-const REGION_IDS = ['r1', 'r2', 'r3'];
-ok(LEVELS.length === 30, 'three regions of ten levels', '(' + LEVELS.length + ')');
+const REGION_IDS = ['r1', 'r2', 'r3', 'r4'];
+ok(LEVELS.length === 40, 'four regions of ten levels', '(' + LEVELS.length + ')');
 for (const r of REGION_IDS)
   ok(LEVELS.filter(L => L.id.startsWith(r)).length === 10, r + ' has ten levels');
 
-const KINDS = new Set(['wood', 'glass', 'concrete', 'steel', 'barrel', 'sign', 'cam', 'hcam', 'drone']);
-const TOOL_IDS = new Set(['chunk', 'paint', 'emp']);
+const KINDS = new Set(['wood', 'glass', 'concrete', 'steel', 'barrel', 'sign', 'cam', 'hcam', 'drone', 'guy']);
+const TOOL_IDS = new Set(['chunk', 'paint', 'emp', 'grapple']);
 
 /* Read the tuning out of the page rather than restating it here. The reachability
    rule below is only as good as its idea of how hard the sling throws, and a
@@ -106,13 +106,20 @@ for (const L of LEVELS) {
      one and supplies no paint is unwinnable by construction — the exact class of
      bug that shipped in r1-06 and took a scripted sweep to notice. */
   if (armoured.length)
-    ok(supply.includes('paint') || supply.includes('emp'),
+    ok(supply.includes('paint') || supply.includes('emp') || supply.includes('grapple'),
        tag + ' · has armoured cameras AND a tool that can beat armour',
        '(' + armoured.length + ' armoured)');
 
   for (const p of L.parts) {
     const k = p[0];
     if (!KINDS.has(k)) { ok(false, tag + ' · unknown part kind "' + k + '"'); continue; }
+    /* A guy wire is a PAIR of points — a body point and a ground anchor — so the
+       single-position rules below do not describe it. Check it on its own terms. */
+    if (k === 'guy') {
+      if (!(p[3] > 0 && p[3] < LEVEL_W)) ok(false, tag + ' · guy anchor x=' + p[3] + ' outside the level');
+      if (!(p[4] > GROUND_Y - 40 && p[4] <= GROUND_Y + 10)) ok(false, tag + ' · guy anchor y=' + p[4] + ' is not on the ground');
+      continue;
+    }
     const [x, y] = [p[1], p[2]];
     if (!(x > 0 && x < LEVEL_W)) ok(false, tag + ' · part ' + k + ' x=' + x + ' outside level width');
     if (!(y > -200 && y <= GROUND_Y)) ok(false, tag + ' · part ' + k + ' y=' + y + ' outside level height');

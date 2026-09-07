@@ -197,7 +197,7 @@ Show a stranger one use of the tool. If they cannot then predict its second use,
 | **The Chunk** | Nico | **[MVP]** | A heavy rock that flies in an arc and breaks what it hits. | No |
 | **Paint Bomb** | Sofia | **[BUILT]** | Bursts into paint. Any lens it can see is finished. | No |
 | **EMP Jar** | Tuan | **[BUILT]** | Pops once. Everything powered nearby stops being powered. | No |
-| **Grapple Winch** | Marisol | [V1] | Sticks to what it hits, then yanks it toward you. | Yes — one click |
+| **Grapple Winch** | Marisol | **[BUILT]** | Sticks to whatever it hits, then drags it toward you. | Yes — one click |
 | **The Breacher** | Baz | [V1] | Very heavy, flies flat, punches through walls instead of bouncing off. | No |
 | **Signal Disruptor** | Wren | [V1] | Turns one camera against its own network, and it takes its neighbours down with it. | No |
 
@@ -577,6 +577,45 @@ and the region's signature chain reaction would silently not exist.
 
 ---
 
+### 8.3d Difficulty curve, Region 4 **[BUILT]**
+
+Ridgeline. Marisol joins with the **Grapple Winch** — the one documented exception to R1's
+single verb (§5.4). It sticks to what it hits, and a second click drags that thing toward
+the launcher.
+
+**The exception is bounded on purpose.** The pull direction is always back toward the
+launcher, so the second verb is a *trigger*, not a second aim — there is nothing new to
+learn about steering, only about timing. And it can never strand a player: if no click
+comes, the winch runs itself after 2.2 s. A verb the player might not know about must not
+be a way to get stuck.
+
+This is the region of **things that will not break**. Steel ignores a rock, a pulse and a
+jar of paint alike — but it can be dragged over, and what holds it up can be made to let
+go. Every level here is answered by *changing what is loaded* rather than by destroying
+anything.
+
+| # | Name | Teaches | Par | Supply |
+|---|---|---|---|---|
+| 1 | **Winch** | Stick it to the mast. Then pull. | 1 | 2 grapple, chunk |
+| 2 | **Guy Wires** | Break what is holding the mast, not the mast. | 1 | 2 grapple, chunk |
+| 3 | **Pull the Leg** | Take a leg away and the deck does the rest. | 1 | 3, grapple-led |
+| 4 | **Counterweight** | The slab is not in the way; the slab is the tool. | 2 | 4, mixed |
+| 5 | **High Tension** | One mast, one housing — only one cares about the winch. | 2 | 4, mixed |
+| 6 | **Snow Load** | A wooden frame under a concrete roof. | 2 | 4, mixed |
+| 7 | **Domino Masts** | Only the near mast needs a cable. | 2 | 2 grapple, chunk |
+| 8 | **Anchor Point** | Three targets, three answers, none of them a rock. | 2 | 5, all four tools |
+| 9 | **Relay Farm** | Four masts, one winch at a time. Pick the order. | 3 | 5, grapple-led |
+| 10 | **The Relay** | Finale. Suspended mast, wires, counterweight. | 3 | 7, grapple-led |
+
+**Guy wires** (`guy`) are real constraints between a body point and a ground anchor, and
+they **snap when stretched 22% past their length**. They hold the mast up as well as
+holding it down, so a level that loses one at build time collapses on its own — which
+`settleTest` catches. They are drawn with their real tension: slack hangs, taut runs
+straight, and a wire near its limit turns red, so the player can see which one is about to
+go.
+
+---
+
 ## 8.6 DIFFICULTY, MEASURED
 
 "Easily playable and beatable, but not too easy" is a claim, and a claim needs a number.
@@ -587,7 +626,7 @@ on it and reports how often that still wins.
 
 | | Meaning | Threshold |
 |---|---|---|
-| `clear` | a careful player finishes the level | **≥ 40%** (finales sit near this) |
+| `clear` | a careful player finishes the level | **≥ 40%**, *or* ≥ 72% per shot |
 | `threeStar` | …and does it at par | **≤ 92%**, except tutorial levels |
 
 **Calibration matters more than the band.** The aim preview is exact and shows the whole
@@ -615,12 +654,27 @@ the band — not as an absolute.
 
 | | Value |
 |---|---|
-| Mean clear rate | **80%** |
-| Mean three-star rate | **60%** |
+| Mean clear rate | **81%** |
+| Mean three-star rate | **61%** |
 | Casual-player clear rate | 69% |
+| By region | R1 92% · R2 84% · R3 85% · R4 61% |
 | Levels below the floor | none |
 | Hardest | *The Hive* (R3 finale) — 60% clear, 47% three-star |
 | Easiest | *Drone Delivery* — 97% clear |
+
+**⚠ THE FLOOR HAS TO SCALE WITH HOW MANY SHOTS A LEVEL NEEDS.** A flat clear-rate floor
+punishes long levels for being long: at an identical standard of play a four-shot level
+clears p⁴ where a one-shot level clears p, so 40% on a par-4 finale is the *same skill* as
+80% on a par-1 tutorial. Judged flat, every finale read as broken and every tutorial read
+as fine — and the implied fix, shortening the finales, would have been solving a problem
+that did not exist. The floor is on **per-shot reliability**, `clear^(1/par)`, which is the
+thing that is actually comparable across a campaign.
+
+**⚠ RANK CANDIDATE SHOTS ON KILLS FIRST, ROBUSTNESS ONLY AS A TIE-BREAK.** Ranking on
+robustness alone is subtly broken: a candidate that kills nothing has a target of zero, so
+"did it still achieve its target?" is trivially true and it scores a **perfect** 1.0. Every
+zero-kill shot outranked every real one whose hook might miss, and a level solvable in
+three was reported unsolvable in seven.
 
 **⚠ A par must be reachable RELIABLY, not just reachable.** *The Hive* has a shot that takes
 all six targets at once — 36°, full pull — and the search rejects it, correctly: it survives

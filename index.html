@@ -116,6 +116,15 @@
   .newtool{margin-top:8px; font-weight:800; font-size:13px; letter-spacing:.2em;
            text-transform:uppercase; color:var(--pink)}
 
+  /* The second verb needs a second prompt, and it has to be impossible to miss —
+     this is the one moment in the game where releasing the drag is not the end
+     of the shot. */
+  #reel{position:fixed; left:50%; bottom:20%; transform:translateX(-50%); font-family:var(--head);
+        font-size:23px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink);
+        background:#ffb03a; padding:9px 20px; border-radius:11px; pointer-events:none;
+        opacity:0; transition:opacity .18s; box-shadow:0 5px 0 rgba(0,0,0,.34); white-space:nowrap}
+  #reel.on{opacity:1; animation:bob 1s ease-in-out infinite}
+
   #hint{position:fixed; left:50%; bottom:14%; transform:translateX(-50%); font-family:var(--head);
         font-size:20px; letter-spacing:.14em; text-transform:uppercase; color:var(--paper);
         text-shadow:0 3px 0 rgba(0,0,0,.5); pointer-events:none; opacity:0; transition:opacity .4s}
@@ -148,6 +157,7 @@
 </div>
 
 <div id="hint">← Drag back and release</div>
+<div id="reel">Click to winch it in</div>
 
 <div id="screens">
 
@@ -296,7 +306,30 @@ const CONFIG = Object.freeze({
   camHp: 7, camFloor: 1, camW: 38, camH: 26,
   droneW: 46, droneH: 22,
   droneStunImpulse: 3,         // a clipped rotor drops it, fatal or not
+  /* The winch. `reelAccel` is the velocity per step the pull is worth to the
+     body it has hold of, converted to a force against that body's own mass so a
+     heavy mast and a light post are dragged at the same rate — the winch pulls
+     at a speed, not with a fixed shove. `reelAutoMs` is the safety net on the
+     second verb: a player who never clicks still gets their shot. */
+  reelAccel: 0.16, reelMs: 1150, reelAutoMs: 2200,
+  /* A wire fails on SUSTAINED LOAD, not on stretch. A Matter constraint stiff
+     enough to hold a mast up does not measurably stretch — measured at exactly
+     1.0000x its length throughout a full winch pull — so no stretch threshold
+     can ever fire. Time spent under opposing tension is the proxy that works,
+     and it reads correctly too: keep winching and something gives. */
+  guyStrainMs: 220,
+  /* A wire also tears out once its mast has leaned this far. The surviving wire
+     on the PULL side pins the top to an arc that runs upward, so after its
+     partner snapped it held a leaning mast up indefinitely — the winch ran, the
+     wire went, and the mast just stood there. Past a real lean the geometry has
+     gone and every wire on it lets go. */
+  guySnapAngle: 0.22,
   camDetachImpulse: 3,         // knocked off its mounting, but not necessarily dead
+  /* 8.0, not 4.5. Low enough and a slow tilt shakes the camera off EARLY, so it
+     drops clear and lands softly instead of riding the structure down onto
+     something — which made three earlier-region levels markedly harder. Only a
+     genuine whip (a mast going over) should beat the mounting. */
+  camRideDetach: 8.0,          // px/step a bracket can carry before it lets go
   trailStep: 3,
 });
 /* ==== CONFIG:END ==== */
@@ -363,6 +396,21 @@ const TOOLS = {
     radius: 13, sides: 6, density: 0.0012, rest: 0.15, fric: 0.5, frictionAir: 0,
     burst: true, splashR: 132, fuseR: 62, noDamage: true, throughWalls: true,
   },
+  /* Marisol's, and the one documented exception to R1's single verb (§5.4): it
+     STICKS, and then it PULLS. Everything else in the game is decided at the
+     moment of release; this is decided afterwards, which is why it arrives in
+     its own region with a level built only to teach it.
+
+     It beats what impact cannot — a steel mast does not break and does not care
+     about a rock, but it can be dragged over. The exception is bounded: the pull
+     direction is always back toward the launcher, so the second verb is a
+     TRIGGER, not a second aim. */
+  grapple: {
+    name: 'Grapple Winch', rebel: 'Marisol Okonjo', pip: '#ffb03a',
+    blurb: 'Sticks to whatever it hits, then drags it toward you.',
+    radius: 11, sides: 4, density: 0.0018, rest: 0.02, fric: 0.9, frictionAir: 0,
+    hook: true, noDamage: true,
+  },
 };
 
 const REBELS = {
@@ -372,6 +420,8 @@ const REBELS = {
            why: 'She had been painting over cameras by hand for two years and got tired of climbing.' },
   tuan:  { name: 'Tuan Vo', region: 'New Meridian', tool: 'emp',
            why: 'Resigned from the robotics club in protest and took the battery pack with him.' },
+  marisol: { name: 'Marisol Okonjo', region: 'Ridgeline', tool: 'grapple',
+             why: 'She is the only one who reads the installation manuals, which is how she knows where the bolts are.' },
 };
 
 /* A level's `tools` is either a COUNT (that many Chunks — every Region 1 level,
@@ -392,6 +442,8 @@ const REGIONS = [
     blurb:'Dense blocks, alleys and rooftops. Up here the cameras wear armour.' },
   { id:'r3', name:'New Meridian', rebel:'tuan', tools:'Chunk · Paint · EMP', starGate:36,
     blurb:'Glass towers and too many lights. Half the cameras are in the air.' },
+  { id:'r4', name:'Ridgeline', rebel:'marisol', tools:'…and the Grapple Winch', starGate:54,
+    blurb:'A mountain relay station built out of things that do not break.' },
 ];
 
 function regionOf(i){ const p = LEVELS[i].id.slice(0, 2); return Math.max(0, REGIONS.findIndex(r => r.id === p)); }
@@ -508,9 +560,9 @@ const LEVELS = [
       ['wood',   990, 605, 24, 230],
       ['wood',   910, 481, 220, 18],
       ['barrel', 860, 448, 24],
-      ['wood',  1300, 620, 26, 200],
-      ['wood',  1300, 511, 130, 18],
-      ['cam',   1300, 489],
+      ['wood',  1380, 620, 26, 200],
+      ['wood',  1380, 511, 130, 18],
+      ['cam',   1380, 489],
       ['sign',   560, 600, 'CITIZENVISION™ — BECAUSE SOMEONE SHOULD BE WATCHING'],
     ]},
 
@@ -586,7 +638,7 @@ const LEVELS = [
       ['sign',      620, 600, '47 CAMERAS SERVING THIS STREET. TARGET: 60.'],
     ]},
 
-  { id:'r2-04', name:'Line of Sight', par:2, tools:['chunk','paint','paint'],
+  { id:'r2-04', name:'Line of Sight', par:2, tools:['chunk','paint','paint'], tutorial:true,
     teach:'Paint cannot see through glass either. Fix that first.',
     parts:[
       ['glass', 1120, 570, 20, 300],
@@ -598,7 +650,7 @@ const LEVELS = [
       ['sign',   600, 600, 'THIS AREA IS PROTECTED BY LOOKING AT IT'],
     ]},
 
-  { id:'r2-05', name:'Rooftop Row', par:3, tools:['chunk','paint','chunk','paint'],
+  { id:'r2-05', name:'Rooftop Row', par:3, tools:['chunk','paint','chunk','paint','chunk','paint'],
     teach:'Right tool, right roof. The armoured one will not care about the rock.',
     parts:[
       ['concrete', 1000, 630, 140, 180],
@@ -715,7 +767,7 @@ const LEVELS = [
       ['sign',  600, 600, 'AERIAL COVERAGE IS COVERAGE YOU DESERVE'],
     ]},
 
-  { id:'r3-03', name:'Blind Corner', par:2, tools:['paint','emp','emp'],
+  { id:'r3-03', name:'Blind Corner', par:2, tools:['paint','emp','emp'], tutorial:true,
     teach:'Paint needs to see a lens. This one has nothing to see it with.',
     parts:[
       ['concrete', 1140, 640, 26, 160],
@@ -737,7 +789,7 @@ const LEVELS = [
       ['sign',   600, 600, 'UNOBSERVED AREAS ARE BEING ADDRESSED'],
     ]},
 
-  { id:'r3-05', name:'Mixed Signals', par:3, tools:['emp','chunk','paint','emp','chunk'],
+  { id:'r3-05', name:'Mixed Signals', par:3, tools:['emp','chunk','paint','emp','chunk','emp','paint'],
     teach:'Three targets, three different answers. Pick them in the right order.',
     parts:[
       ['concrete', 1050, 645, 120, 150],
@@ -777,12 +829,12 @@ const LEVELS = [
       ['drone', 1180, 240],
       ['drone', 1200, 400],
       ['drone', 1220, 556],
-      ['wood',  1400, 650, 24, 140],
-      ['cam',   1400, 567],
+      ['wood',  1470, 645, 24, 150],
+      ['cam',   1470, 557],
       ['sign',   600, 600, 'CITIZENVISION™ — BECAUSE SOMEONE SHOULD BE WATCHING'],
     ]},
 
-  { id:'r3-09', name:'Redundancy', par:2, tools:['emp','paint','chunk','emp','paint'],
+  { id:'r3-09', name:'Redundancy', par:3, tools:['emp','paint','chunk','emp','paint'],
     teach:'Six of them. Five tools. The arithmetic only works if the jars land well.',
     parts:[
       ['concrete', 1080, 685, 240, 70],
@@ -802,7 +854,7 @@ const LEVELS = [
      reliable route is four pulses, and par should be what a player can repeat.
      The level ends up satisfying §8.2 exactly: obvious six, efficient four,
      unexpected one. */
-  { id:'r3-10', name:'The Hive', par:4, tools:['emp','emp','emp','chunk','paint','emp','chunk'],
+  { id:'r3-10', name:'The Hive', par:4, tools:['emp','emp','emp','chunk','paint','emp','chunk','emp','emp','paint'],
     teach:'Region finale. A docking tower, two housings, and two of them airborne.',
     parts:[
       ['concrete', 1200, 690, 260, 60],
@@ -821,9 +873,134 @@ const LEVELS = [
          pair could never share and the cheapest clear was four shots against a
          par of three. Targets standing on a surface do not have this problem:
          the jar strikes the deck between them and bursts where it is aimed. */
-      ['drone',    1145, 170],
-      ['drone',    1255, 170],
+      ['drone',    1160, 180],
+      ['drone',    1240, 180],
       ['sign',      600, 560, 'THE HIVE — PUBLIC SAFETY OBSERVATION NETWORK'],
+    ]},
+
+  /* ── REGION 4 · RIDGELINE ─ Marisol Okonjo ─ Grapple Winch ────────────────
+     The region of things that will not break. Steel does not care about a rock,
+     a pulse, or a jar of paint — but it can be dragged over, and what holds it
+     up can be made to let go. Every level here is answered by CHANGING WHAT IS
+     LOADED rather than by destroying anything. */
+
+  { id:'r4-01', name:'Winch', par:1, tools:['grapple','grapple','chunk'], tutorial:true,
+    teach:'Stick it to the mast. Then pull.',
+    parts:[
+      ['steel', 1200, 600, 34, 240],
+      ['cam',   1200, 467],
+      ['sign',   600, 600, 'RIDGELINE RELAY — AUTHORISED CLIMBERS ONLY'],
+    ]},
+
+  { id:'r4-02', name:'Guy Wires', par:1, tools:['grapple','grapple','chunk'], tutorial:true,
+    teach:'You will not break the mast. Break what is holding it.',
+    parts:[
+      ['steel', 1240, 570, 30, 300],
+      ['guy',   1240, 440, 1060, 714],
+      ['guy',   1240, 440, 1420, 714],
+      ['cam',   1240, 407],
+      ['sign',   600, 600, 'TENSION CHECKED ANNUALLY. LAST CHECK: 2017.'],
+    ]},
+
+  { id:'r4-03', name:'Pull the Leg', par:1, tools:['grapple','chunk','grapple','grapple','grapple','grapple'],
+    teach:'Take a leg away and the deck does the rest.',
+    parts:[
+      ['steel', 1120, 620, 40, 200],
+      ['steel', 1320, 620, 40, 200],
+      ['wood',  1220, 509, 280, 22],
+      ['cam',   1160, 485],
+      ['cam',   1280, 485],
+      ['sign',   600, 600, 'YOUR COOPERATION HAS BEEN NOTED AND FILED'],
+    ]},
+
+  { id:'r4-04', name:'Counterweight', par:2, tools:['grapple','chunk','grapple','chunk'],
+    teach:'The slab is not in the way. The slab is the tool.',
+    parts:[
+      ['steel',    1200, 650, 30, 140],
+      ['wood',     1200, 570, 300, 20],
+      ['concrete', 1200, 532, 90, 56],
+      ['cam',      1080, 707],
+      ['wood',     1360, 655, 24, 130],
+      ['cam',      1360, 577],
+      ['sign',      600, 600, 'LOAD LIMITS ARE A MATTER OF OPINION'],
+    ]},
+
+  { id:'r4-05', name:'High Tension', par:3, tools:['grapple','emp','paint','grapple','chunk'],
+    teach:'One mast, one housing. Only one of them cares about the winch.',
+    parts:[
+      ['steel', 1180, 560, 30, 320],
+      ['guy',   1180, 410, 1000, 714],
+      ['guy',   1180, 410, 1360, 714],
+      ['cam',   1180, 387],
+      ['concrete', 1420, 660, 110, 120],
+      ['hcam',  1420, 581],
+      ['drone', 1290, 320],
+      ['sign',   600, 600, 'UNOBSERVED AREAS ARE BEING ADDRESSED'],
+    ]},
+
+  { id:'r4-06', name:'Snow Load', par:2, tools:['grapple','chunk','grapple','paint','grapple','grapple'],
+    teach:'A wooden frame under a concrete roof. Nudge it and stand back.',
+    parts:[
+      ['wood',     1120, 630, 26, 180],
+      ['wood',     1300, 630, 26, 180],
+      ['wood',     1210, 529, 250, 22],
+      ['concrete', 1210, 486, 180, 64],
+      ['cam',      1210, 707],
+      ['cam',      1400, 577],
+      ['wood',     1400, 655, 24, 130],
+      ['sign',      600, 600, 'REPORT UNUSUAL CALM'],
+    ]},
+
+  { id:'r4-07', name:'Domino Masts', par:2, tools:['grapple','grapple','chunk','grapple','grapple','grapple'],
+    teach:'Two masts. Only the near one needs a cable.',
+    parts:[
+      ['steel', 1080, 590, 28, 260],
+      ['cam',   1080, 447],
+      ['steel', 1330, 620, 28, 200],
+      ['cam',   1330, 507],
+      ['sign',   600, 600, 'THIS AREA IS PROTECTED BY LOOKING AT IT'],
+    ]},
+
+  { id:'r4-08', name:'Anchor Point', par:3, tools:['grapple','emp','paint','grapple','chunk','emp','grapple'],
+    teach:'Three answers, three targets, and none of them is a rock.',
+    parts:[
+      ['steel', 1120, 580, 28, 280],
+      ['guy',   1120, 450, 960, 714],
+      ['guy',   1120, 450, 1290, 714],
+      ['cam',   1120, 427],
+      ['concrete', 1330, 655, 120, 130],
+      ['hcam',  1330, 571],
+      ['drone', 1450, 380],
+      ['sign',   600, 600, '47 CAMERAS SERVING THIS STREET. TARGET: 60.'],
+    ]},
+
+  { id:'r4-09', name:'Relay Farm', par:3, tools:['grapple','grapple','emp','grapple','chunk','grapple','emp'],
+    teach:'Four masts, one winch at a time. Pick the order.',
+    parts:[
+      ['steel', 1000, 630, 24, 180],
+      ['cam',   1000, 527],
+      ['steel', 1160, 610, 24, 220],
+      ['cam',   1160, 487],
+      ['steel', 1320, 630, 24, 180],
+      ['cam',   1320, 527],
+      ['concrete', 1450, 675, 110, 90],
+      ['hcam',  1450, 611],
+      ['sign',   600, 600, 'NOTHING TO HIDE? NOTHING TO WORRY ABOUT.'],
+    ]},
+
+  { id:'r4-10', name:'The Relay', par:3, tools:['grapple','emp','grapple','paint','chunk','grapple','emp','grapple'],
+    teach:'Region finale. A suspended mast, four wires and a counterweight.',
+    parts:[
+      ['concrete', 1200, 690, 300, 60],
+      ['steel',    1200, 520, 40, 280],
+      ['guy',      1200, 410, 1000, 714],
+      ['guy',      1200, 410, 1400, 714],
+      ['wood',     1200, 370, 260, 20],
+      ['cam',      1100, 347],
+      ['cam',      1300, 347],
+      ['hcam',     1200, 341],
+      ['drone',    1420, 300],
+      ['sign',      600, 560, 'THE RIDGELINE RELAY — PUBLIC SAFETY OBSERVATION NETWORK'],
     ]},
 ];
 /* ==== LEVELS:END ==== */
@@ -879,6 +1056,11 @@ const CUES = {
      rotor losing power, which is the sound of a drone about to become debris. */
   EMP_BURST:       { gap: 40,  parts:[[900,120,0.30,'sine',0.20],[2200,300,0.16,'triangle',0.12],[70,40,0.30,'sine',0.16,0.01]], noise:[0.10,0.16,2600,0.7] },
   EMP_HIT:         { gap: 40,  parts:[[1200,90,0.34,'sine',0.24],[2600,320,0.20,'triangle',0.14],[70,40,0.34,'sine',0.18,0.01]], noise:[0.13,0.20,3000,0.7] },
+  /* A wire letting go is a whip-crack and a receding twang. */
+  GUY_SNAP:        { gap: 60,  parts:[[1800,300,0.16,'sawtooth',0.22],[520,120,0.34,'triangle',0.16,0.02]], noise:[0.16,0.10,3200,1.2] },
+  HOOK_BITE:       { gap: 40,  parts:[[220,140,0.10,'square',0.20],[90,60,0.16,'triangle',0.14,0.02]], noise:[0.10,0.09,1400,1.6] },
+  /* A winch is a motor under load: a low buzz that RISES as the line comes in. */
+  WINCH:           { gap:200,  parts:[[70,150,0.85,'sawtooth',0.16],[141,300,0.85,'square',0.07]] },
   CAMERA_FRIED:    { gap: 30,  parts:[[1500,140,0.20,'square',0.16],[300,90,0.34,'sawtooth',0.15,0.05]], noise:[0.12,0.22,2400,2.4,0.01] },
   COLLAPSE:        { gap:200,  parts:[[70,36,0.85,'sawtooth',0.24],[110,55,0.60,'triangle',0.13,0.04]] },
   LEVEL_COMPLETE:  { gap:400,  parts:[[523,523,0.18,'sine',0.20],[659,659,0.18,'sine',0.19,0.13],[784,784,0.42,'sine',0.20,0.26]] },
@@ -1007,6 +1189,11 @@ function makeEngine(){
   Events.on(engine, 'collisionStart', onCollisions);
 }
 
+/* The part kinds the solid-parts pass builds. Anything else in a level's data
+   is handled by its own pass — targets, signs, guy wires — and must NOT be built
+   as a rectangle here. */
+const BUILT_HERE = new Set(['wood', 'glass', 'concrete', 'steel', 'barrel']);
+
 function partBody(kind, x, y, w, h, angDeg){
   const m = MATERIALS[kind];
   /* A rectangle built with an undefined size is a body with NaN mass and NaN
@@ -1033,7 +1220,8 @@ function buildLevel(index){
 
   const S = {
     def, index, rng,
-    parts: [], cams: [], signs: [], frags: [], particles: [], rings: [],
+    parts: [], cams: [], signs: [], frags: [], particles: [], rings: [], guys: [],
+    hook: null,
     proj: null, trail: [], lastTrail: [],
     toolQueue: toolList(def), toolsUsed: 0, toolsLeft: toolList(def).length,
     splats: [],
@@ -1059,11 +1247,14 @@ function buildLevel(index){
   const solid = [];
   for (const p of def.parts){
     const kind = p[0];
-    /* Every target kind must be listed here as well as in the target pass, or it
-       is ALSO built as a rectangle with no size. The guard in partBody exists
-       because this exact omission shipped once for `hcam`; it caught `drone`
-       immediately, which is the whole argument for the guard. */
-    if (kind === 'cam' || kind === 'hcam' || kind === 'drone' || kind === 'sign') continue;
+    /* OPT IN, do not opt out. This was a skip-list — "everything except cam,
+       sign, …" — and it failed open three times running: every new part kind
+       (`hcam`, then `drone`, then `guy`) was ALSO built here as a rectangle with
+       no size. partBody's guard caught each one, but a list that has to be
+       updated for every addition is a list that will be forgotten again. Naming
+       the kinds this loop actually builds makes a new kind inert by default
+       instead of broken by default. */
+    if (!BUILT_HERE.has(kind)) continue;
     let b;
     if (kind === 'barrel'){
       const r = p[3] || 26, m = MATERIALS.barrel;
@@ -1134,6 +1325,7 @@ function buildLevel(index){
       if (mount.collisionFilter.group >= 0){ group -= 1; mount.collisionFilter.group = group; }
       c.collisionFilter.group = mount.collisionFilter.group;
       c._mount = mount;
+      c.sleepThreshold = Infinity;      // driven, not simulated: never let it sleep
       c._off = { x: c.position.x - mount.position.x, y: c.position.y - mount.position.y };
       c._mountAng0 = mount.angle; c._ang0 = c.angle;
     }
@@ -1141,8 +1333,83 @@ function buildLevel(index){
     S.cams.push(c);
   }
 
+  /* Guy wires. `['guy', bx, by, ax, ay]` ties the body containing (bx,by) to a
+     fixed ground anchor at (ax,ay). They are what makes a mast that cannot be
+     broken still fall over: pull it far enough and the wire on the far side
+     lets go. A wire is a real constraint, so it also holds the mast UP — a level
+     that loses a wire at build time falls down on its own, which settleTest
+     catches. */
+  for (const p of def.parts){
+    if (p[0] !== 'guy') continue;
+    const at = { x: p[1], y: p[2] };
+    const on = solid.find(b => Matter.Bounds.contains(b.bounds, at)) ||
+               solid.find(b => Math.hypot(b.position.x - at.x, b.position.y - at.y) < 90);
+    if (!on) continue;
+    const ca = Math.cos(-on.angle), sa = Math.sin(-on.angle);
+    const dx = at.x - on.position.x, dy = at.y - on.position.y;
+    const anchor = { x: p[3], y: p[4] };
+    const c = Matter.Constraint.create({
+      bodyA: on,
+      pointA: { x: dx * ca - dy * sa, y: dx * sa + dy * ca },
+      pointB: anchor,
+      stiffness: 0.85, damping: 0.12,
+      length: Math.hypot(at.x - anchor.x, at.y - anchor.y),
+    });
+    c._anchor = anchor; c._body = on; c._alive = true; c._restAngle = on.angle;
+    Composite.add(world, c);
+    S.guys.push(c);
+  }
+
   S.aliveCams = S.cams.length;
   return S;
+}
+
+/* A wire under too much tension lets go. That is the whole mechanic: the winch
+   does not break the mast, it breaks what is holding the mast. */
+function stepGuys(dt){
+  /* Accumulate strain on whichever wires are OPPOSING the winch. A pull that
+     runs away from a wire's anchor is load on that wire; a pull toward it is
+     slack. So winching a guyed mast picks out the far wire on its own, and the
+     player never has to be told which one is carrying the weight. */
+  const h = S.hook;
+  if (h && h.reeling){
+    const p = hookPoint();
+    const px = CONFIG.launchX - p.x, py = CONFIG.launchY - p.y;
+    const pd = Math.hypot(px, py) || 1;
+    for (const g of S.guys){
+      if (!g._alive || g._body !== h.body) continue;
+      const a = Matter.Constraint.pointAWorld(g);
+      const gx = g._anchor.x - a.x, gy = g._anchor.y - a.y;
+      const gd = Math.hypot(gx, gy) || 1;
+      if ((px / pd) * (gx / gd) + (py / pd) * (gy / gd) < -0.15) g._strain = (g._strain || 0) + dt;
+    }
+  }
+
+  for (let i = S.guys.length - 1; i >= 0; i--){
+    const g = S.guys[i];
+    if (!g._alive) continue;
+    const bodyGone = g._body._dead || S.parts.indexOf(g._body) < 0;
+    const p = Matter.Constraint.pointAWorld(g);
+    const leaned = Math.abs(g._body.angle - g._restAngle) > CONFIG.guySnapAngle;
+    /* PROGRESSIVE COLLAPSE. A guyed mast is a system, not a set of independent
+       wires: once one lets go the rest are carrying a load they were never sized
+       for and they go too. Mechanically this is the only thing that makes the
+       mechanic work at all — the surviving wire on the pull side pins the top to
+       an arc that runs UPWARD, so a mast with one wire left stood there
+       indefinitely while the winch strained against it, and the lean threshold
+       could never trigger because the lean could never start. */
+    if (bodyGone || leaned || (g._strain || 0) >= CONFIG.guyStrainMs || g._body._guysFailing){
+      g._alive = false;
+      g._body._guysFailing = true;      // the rest of this mast's wires go with it
+      Composite.remove(world, g);
+      S.guys.splice(i, 1);
+      if (!bodyGone){
+        Audio_.play('GUY_SNAP');
+        spark(p, 8);
+        S.shake = Math.min(CONFIG.shakeMax, S.shake + 4);
+      }
+    }
+  }
 }
 
 /* The body a camera is sitting on: nearest solid whose top edge is just below it
@@ -1166,6 +1433,7 @@ function findMount(solid, x, y, halfH){
 let S = null;
 const breakQueue = [];
 const burstQueue = [];
+const hookQueue = [];
 
 function reducedMass(a, b){
   const ma = a.isStatic ? Infinity : a.mass;
@@ -1187,6 +1455,15 @@ function onCollisions(ev){
     const burst = (a._tool && TOOLS[a._tool].burst) ? a : (b._tool && TOOLS[b._tool].burst) ? b : null;
     if (burst && !burst._spent){ burst._spent = true; burstQueue.push(burst); }
     if (burst){ continue; }                             // paint does no impact damage at all
+
+    /* A hook bites the first thing it touches. Queued like a burst, for the same
+       reason: the world must not be edited inside a collision handler. */
+    const hook = (a._tool && TOOLS[a._tool].hook) ? a : (b._tool && TOOLS[b._tool].hook) ? b : null;
+    if (hook){
+      const onto = hook === a ? b : a;
+      if (!hook._spent && !onto.isStatic){ hook._spent = true; hookQueue.push({ hook, onto }); }
+      continue;                                         // the hook itself never does damage
+    }
     /* Velocities snapshotted before Engine.update, so this reads the approach
        speed rather than whatever the solver has already done about it. */
     const rvx = (a._pvx || 0) - (b._pvx || 0);
@@ -1301,6 +1578,80 @@ function addSplats(p){
       S.splats.push({ body: null, x: p.x + S.rng.range(-70, 70), y: CONFIG.groundY + S.rng.range(-3, 5), r: S.rng.range(8, 22) });
 }
 
+/* ── The Grapple Winch ───────────────────────────────────────────────────────
+   Bites, then winches. The pull is a FORCE applied at the bite point rather than
+   a velocity set on the body, so it fights gravity and contacts honestly and —
+   because it acts off-centre — it produces torque. That torque is the tool: a
+   steel mast is not going to break, but it will go over. */
+function setHook(hook, onto){
+  const p = { x: hook.position.x, y: hook.position.y };
+  const ca = Math.cos(-onto.angle), sa = Math.sin(-onto.angle);
+  const dx = p.x - onto.position.x, dy = p.y - onto.position.y;
+  Composite.remove(world, hook);
+  if (S.proj === hook) S.proj = null;
+  Matter.Sleeping.set(onto, false);
+  /* Hooking a drone brings it down. Without this the winch pulled on a body that
+     is position-driven while powered, so the cable went taut and nothing moved —
+     the one tool interaction a player would obviously expect to work. */
+  if (onto._flying && onto._alive) groundDrone(onto);
+  S.hook = {
+    body: onto,
+    lx: dx * ca - dy * sa,                 // bite point, in the body's own frame
+    ly: dx * sa + dy * ca,
+    reeling: false, reeled: 0, waited: 0,
+  };
+  Audio_.play('HOOK_BITE');
+  if (!S.headless) showReelPrompt(true);
+}
+
+function hookPoint(){
+  const h = S.hook; if (!h) return null;
+  const c = Math.cos(h.body.angle), s = Math.sin(h.body.angle);
+  return { x: h.body.position.x + h.lx * c - h.ly * s,
+           y: h.body.position.y + h.lx * s + h.ly * c };
+}
+
+function startReel(){
+  if (!S.hook || S.hook.reeling) return;
+  S.hook.reeling = true;
+  Audio_.play('WINCH');
+  showReelPrompt(false);
+}
+
+/* Called every step while a hook is attached. */
+function stepHook(dt){
+  const h = S.hook; if (!h) return;
+  /* If the thing it bit has since been destroyed, the cable goes slack. */
+  if (h.body._dead || (h.body._mat && h.body._hp <= 0)){ releaseHook(); return; }
+
+  if (!h.reeling){
+    /* AUTO-REEL. The second verb must never be a way to get stuck: a player who
+       does not realise a click is wanted still gets their shot, just later. */
+    h.waited += dt;
+    /* Headless waits a fraction of that. The delay exists only so a player who
+       does not know about the click still gets their shot; the world is static
+       while it ticks, so shortening it changes nothing mechanical — and it takes
+       200 wasted steps off every grappling shot in a forty-level sweep. */
+    if (h.waited >= (S.headless ? 250 : CONFIG.reelAutoMs)) startReel();
+    return;
+  }
+
+  h.reeled += dt;
+  if (h.reeled >= CONFIG.reelMs){ releaseHook(); return; }
+
+  const p = hookPoint();
+  const dx = CONFIG.launchX - p.x, dy = CONFIG.launchY - p.y;
+  const d = Math.hypot(dx, dy) || 1;
+  const f = h.body.mass * CONFIG.reelAccel / ((1000 / 60) ** 2);
+  Body.applyForce(h.body, p, { x: dx / d * f, y: dy / d * f });
+}
+
+function releaseHook(){
+  if (!S.hook) return;
+  S.hook = null;
+  if (!S.headless) showReelPrompt(false);
+}
+
 /* Blinded, not broken. The camera is physically fine and completely useless,
    and it has to LOOK that way — the count in the HUD says a target is down and
    the thing on screen must agree. */
@@ -1354,6 +1705,11 @@ function groundDrone(c){
 function detachCam(c){
   if (c._detached) return;
   c._detached = true;
+  /* WAKE IT. A bracketed camera is driven by its mount in sub-pixel steps, which
+     is under Matter's sleep threshold — so it was asleep, and a sleeping body
+     ignores gravity. Thrown off a toppling mast it froze in mid-air holding a
+     velocity of 4.51 px/step forever. Exactly the bug the drones had. */
+  Matter.Sleeping.set(c, false);
   if (c._mount) c.collisionFilter.group = 0;
   c._mount = null;
   Body.setStatic(c, false);
@@ -1485,6 +1841,7 @@ function step(dt){
     }
   }
 
+  while (hookQueue.length){ const q = hookQueue.pop(); setHook(q.hook, q.onto); }
   while (burstQueue.length){
     const b = burstQueue.pop();
     const at = { x: b.position.x, y: b.position.y };
@@ -1492,6 +1849,9 @@ function step(dt){
     if (S.proj === b) S.proj = null;
     toolBurst(at, b._tool);
   }
+
+  stepHook(dt);
+  stepGuys(dt);
 
   /* Drones hold station. Driven rather than hovering — same trick as a bracketed
      camera, and for the same reason: a body balanced by an upward force jitters
@@ -1518,7 +1878,7 @@ function step(dt){
     c._hoverX = nx; c._hoverY = ny;
   }
 
-  /* Mounted cameras ride their bracket. */
+  /* Mounted cameras ride their bracket — up to a point. */
   for (const c of S.cams){
     if (!c._mount || c._detached) continue;
     const m = c._mount;
@@ -1526,7 +1886,22 @@ function step(dt){
     const cs = Math.cos(da), sn = Math.sin(da);
     const nx = m.position.x + c._off.x * cs - c._off.y * sn;
     const ny = m.position.y + c._off.x * sn + c._off.y * cs;
-    Body.setVelocity(c, { x: nx - c.position.x, y: ny - c.position.y });
+    const vx = nx - c.position.x, vy = ny - c.position.y;
+
+    /* A BRACKET HAS LIMITS. Toppling a mast whips whatever is bolted to its top
+       through a long arc and then lays it down beside the wreck — and because
+       the camera is driven rather than simulated, it arrived at ground level
+       having touched nothing at all and took ZERO damage. Bringing an entire
+       mast down and finding the camera bolted on and working is the exact
+       opposite of what the shot looked like. Past this speed the mounting loses
+       it, and it finishes the arc as a free body carrying that velocity. */
+    if (Math.hypot(vx, vy) > CONFIG.camRideDetach){
+      detachCam(c);
+      Body.setVelocity(c, { x: vx, y: vy });
+      continue;
+    }
+
+    Body.setVelocity(c, { x: vx, y: vy });
     Body.setPosition(c, { x: nx, y: ny });
     Body.setAngle(c, c._ang0 + da);
   }
@@ -1587,12 +1962,17 @@ function step(dt){
     const v = Math.hypot(b.velocity.x, b.velocity.y);
     if (v > maxV) maxV = v;
   }
-  if (maxV < CONFIG.settleSpeed) S.stillMs += dt; else S.stillMs = 0;
+  /* A cable still attached means the shot is not over, however still the world
+     looks — the winch has not pulled yet. Without this the level is evaluated
+     while the hook is waiting and the player loses a tool for nothing. */
+  if (S.hook) S.stillMs = 0;
+  else if (maxV < CONFIG.settleSpeed) S.stillMs += dt; else S.stillMs = 0;
 
   if (S.stillMs >= CONFIG.settleHoldMs || S.sinceLaunch >= CONFIG.settleCapMs) settled();
 }
 
 function settled(){
+  releaseHook();
   if (S.aliveCams === 0){ win(); return; }
   if (S.proj){ Composite.remove(world, S.proj); S.proj = null; }
   if (S.toolsLeft > 0){
@@ -1670,6 +2050,7 @@ function draw(){
   drawBack();
   drawGround();
 
+  drawGuys();
   for (const b of S.parts) drawPart(b, 1);
   for (const f of S.frags) drawPart(f, f._alpha);
   drawSplats();
@@ -1680,6 +2061,7 @@ function draw(){
   drawTrail(S.lastTrail, 'rgba(246,239,226,0.18)');
   drawTrail(S.trail, 'rgba(255,225,77,0.5)');
   if (S.aiming) drawAim();
+  drawCable();
   drawRings();
   drawParticles();
 
@@ -1690,6 +2072,7 @@ const SKIES = [
   ['#ffd98a', '#ff9a6c', '#e0525f'],   // Porto Vela — warm harbour dusk
   ['#f6c98a', '#c98aa8', '#6a4a86'],   // Kestrel Row — city dusk, cooler and higher
   ['#eafcff', '#a8dcea', '#5f93ac'],   // New Meridian — cold clean daylight off glass
+  ['#dfeaf7', '#a9c2dd', '#7c8ea8'],   // Ridgeline — thin high-altitude light
 ];
 function drawSky(){
   const p = SKIES[Math.min(regionOf(S.index), SKIES.length - 1)];
@@ -1861,8 +2244,77 @@ function drawBackMeridian(){
   ctx.restore();
 }
 
+/* Ridgeline. Above the treeline: snow, rock, pines and a cold sky. The first
+   region with no city in it at all, which is the point — everything here was
+   built by people who had to carry it up. */
+function drawBackRidge(){
+  const px = S.camX;
+  ctx.save();
+
+  /* A pale sun with no warmth in it. */
+  const sx = 400 - px * 0.02;
+  const halo = ctx.createRadialGradient(sx, 110, 20, sx, 110, 260);
+  halo.addColorStop(0, 'rgba(255,255,255,0.55)'); halo.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(sx, 110, 260, 0, 6.2832); ctx.fill();
+
+  /* Three ranges, each nearer and darker, each with snow on top. */
+  const r = new Rng(4404, 'ridge');
+  const ranges = [
+    { sp: 0.05, base: 600, fill: '#9fb0c8', snow: 'rgba(255,255,255,0.75)', min: 200, max: 330, w: 340 },
+    { sp: 0.13, base: 660, fill: '#7c8ea8', snow: 'rgba(255,255,255,0.62)', min: 240, max: 400, w: 300 },
+    { sp: 0.26, base: 706, fill: '#5b6b85', snow: 'rgba(255,255,255,0.45)', min: 260, max: 440, w: 260 },
+  ];
+  for (const rg of ranges){
+    let x = -600 - px * rg.sp;
+    for (let i = 0; i < 16; i++){
+      const w = rg.w * r.range(0.7, 1.3), h = r.range(rg.min, rg.max);
+      const peak = x + w / 2, top = rg.base - h;
+      ctx.fillStyle = rg.fill;
+      ctx.beginPath(); ctx.moveTo(x, rg.base + 40);
+      ctx.lineTo(peak, top); ctx.lineTo(x + w, rg.base + 40); ctx.closePath(); ctx.fill();
+      /* The snow cap, cut at a height rather than scaled — mountains do not wear
+         proportional hats. */
+      const cap = Math.min(h * 0.42, 120), cw = w * (cap / h) / 2;
+      ctx.fillStyle = rg.snow;
+      ctx.beginPath(); ctx.moveTo(peak - cw, top + cap);
+      ctx.lineTo(peak, top); ctx.lineTo(peak + cw, top + cap);
+      ctx.lineTo(peak + cw * 0.4, top + cap * 0.72);
+      ctx.lineTo(peak - cw * 0.25, top + cap * 0.9); ctx.closePath(); ctx.fill();
+      x += w * 0.66;
+    }
+  }
+
+  /* Pines, in two ranks. */
+  const pr = new Rng(5505, 'pines');
+  for (const [sp, base, col, sc] of [[0.42, 700, '#2f4a44', 0.8], [0.62, 716, '#243b37', 1.05]]){
+    let x = -400 - px * sp;
+    for (let i = 0; i < 30; i++){
+      const h = pr.range(60, 120) * sc, w = h * 0.42;
+      ctx.fillStyle = col;
+      for (let t = 0; t < 3; t++){
+        const ty = base - h * (0.28 + t * 0.28), tw = w * (1 - t * 0.24);
+        ctx.beginPath(); ctx.moveTo(x - tw, ty); ctx.lineTo(x, ty - h * 0.38); ctx.lineTo(x + tw, ty); ctx.closePath(); ctx.fill();
+      }
+      ctx.fillRect(x - 3, base - h * 0.3, 6, h * 0.3 + 20);
+      x += pr.range(46, 96);
+    }
+  }
+
+  /* Snow on the deck. */
+  ctx.fillStyle = '#e8eef5'; ctx.fillRect(-600, 706, 4000, CONFIG.groundY - 706);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(-600, 706, 4000, 5);
+
+  const haze = ctx.createLinearGradient(0, 120, 0, CONFIG.groundY);
+  haze.addColorStop(0, 'rgba(220,235,250,0.10)');
+  haze.addColorStop(0.62, 'rgba(205,225,245,0.30)');
+  haze.addColorStop(1, 'rgba(195,218,240,0.40)');
+  ctx.fillStyle = haze; ctx.fillRect(-900, 120, 4200, CONFIG.groundY - 120);
+  ctx.restore();
+}
+
 function drawBack(){
   const reg = regionOf(S.index);
+  if (reg === 3) return drawBackRidge();
   if (reg === 2) return drawBackMeridian();
   if (reg === 1) return drawBackKestrel();
   const px = S.camX;
@@ -2106,6 +2558,14 @@ function drawSign(b){
 
 function drawChunk(b){
   ctx.save();
+  if (b._tool === 'grapple'){
+    ctx.translate(b.position.x, b.position.y); ctx.rotate(b.angle);
+    ctx.fillStyle = '#ffb03a'; ctx.fillRect(-8, -5, 16, 10);
+    ctx.strokeStyle = '#8a5a12'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(6, 0, 7, -2.4, 2.4); ctx.stroke();
+    ctx.lineCap = 'butt';
+    ctx.restore(); return;
+  }
   if (b._tool === 'paint'){
     /* A taped-up jar of pink. It should read as improvised, not as ordnance. */
     ctx.fillStyle = '#ff44a0'; bodyShape(b); ctx.fill();
@@ -2420,6 +2880,65 @@ function drawTrail(pts, colour){
 /* The pulse. It expands to exactly `splashR` and stops there, so the ring is not
    decoration — it is a truthful drawing of the tool's reach, and a player who
    watches one learns how far the next one goes. */
+/* The cable. It SAGS while the winch is idle and pulls straight while it reels —
+   which is the only feedback saying whether the second verb has happened yet, and
+   it reads instantly without a word. */
+/* Guy wires, drawn with their real tension: slack hangs, taut goes straight and
+   pale, and a wire near its snapping point goes red. The player can see which
+   one is about to let go, which is what makes the level readable at all. */
+function drawGuys(){
+  if (!S.guys.length) return;
+  ctx.save();
+  for (const g of S.guys){
+    const p = Matter.Constraint.pointAWorld(g), a = g._anchor;
+    const strain = Math.max(0, Math.min(1, (g._strain || 0) / CONFIG.guyStrainMs));
+    const sag = Math.max(0, 16 * (1 - strain * 2.2));
+    ctx.strokeStyle = strain > 0.55 ? '#ff5a3c' : '#6d6a7a';
+    ctx.lineWidth = 2.6 + strain * 1.4;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y);
+    ctx.quadraticCurveTo((a.x + p.x) / 2, (a.y + p.y) / 2 + sag, p.x, p.y);
+    ctx.stroke();
+    /* The ground anchor: a stake worth aiming at. */
+    ctx.fillStyle = '#5f7186';
+    ctx.fillRect(a.x - 6, a.y - 6, 12, 16);
+  }
+  ctx.restore();
+}
+
+function drawCable(){
+  const h = S.hook; if (!h) return;
+  const p = hookPoint();
+  const ax = CONFIG.launchX, ay = CONFIG.launchY - 8;
+  const mid = { x: (ax + p.x) / 2, y: (ay + p.y) / 2 };
+  const sag = h.reeling ? 6 : 46;
+
+  ctx.save();
+  ctx.strokeStyle = '#3a2b20'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(ax, ay);
+  ctx.quadraticCurveTo(mid.x, mid.y + sag, p.x, p.y); ctx.stroke();
+  ctx.strokeStyle = '#ffb03a'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(ax, ay);
+  ctx.quadraticCurveTo(mid.x, mid.y + sag, p.x, p.y); ctx.stroke();
+
+  /* The hook itself, biting. */
+  ctx.translate(p.x, p.y);
+  ctx.rotate(Math.atan2(ay - p.y, ax - p.x));
+  ctx.fillStyle = '#ffb03a';
+  ctx.fillRect(-3, -5, 14, 10);
+  ctx.strokeStyle = '#8a5a12'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(-4, 0, 7, -2.2, 2.2); ctx.stroke();
+  ctx.lineCap = 'butt';
+  ctx.restore();
+
+  /* While the winch runs, throw sparks off the bite. */
+  /* shakeRng, NOT S.rng: this runs in the RENDER path, and the renderer must not
+     advance the stream the simulation's determinism rests on. */
+  if (h.reeling && S.particles.length < CONFIG.particleMax && shakeRng.chance(0.5)){
+    S.particles.push({ x: p.x, y: p.y, vx: shakeRng.range(-2.4, 2.4), vy: shakeRng.range(-2.4, 0.6),
+      life: 0, max: shakeRng.range(140, 320), r: shakeRng.range(1, 2.2), c: '#ffe14d', g: 0.12 });
+  }
+}
+
 function drawRings(){
   if (!S.rings.length) return;
   ctx.save();
@@ -2458,6 +2977,9 @@ function pointerPos(e){
 cv.addEventListener('pointerdown', e => {
   if (!S || !playing) return;
   Audio_.arm();
+  /* While a cable is out, a click is the WINCH. Checked before anything else so
+     it can never be read as the start of a new aim or a camera pan. */
+  if (S.hook && !S.hook.reeling){ startReel(); return; }
   cv.setPointerCapture(e.pointerId);
   const { sx, sy } = pointerPos(e);
   const w = worldFromScreen(sx, sy);
@@ -2658,9 +3180,11 @@ function showIntro(rebelId, levelIndex){
 const INTRO_CAPS = {
   sofia: ['A mast over a quiet street.', 'It swivels to follow her.', 'She stops. Shakes a can.', 'Entirely pink.'],
   tuan:  ['A drone over the courtyard.', 'Tuan, on the step, with a bag of parts.', 'A jar. A lid. Two wires.', 'Upside down. Sparking.'],
+  marisol: ['A relay mast. Nobody up here but her.', 'She reads the plate on the base.', 'It says where the bolts are.', 'It is not up there any more.'],
 };
 
 function drawPanel(g, n, rebelId){
+  if (rebelId === 'marisol') return drawPanelMarisol(g, n);
   if (rebelId === 'tuan') return drawPanelTuan(g, n);
   const W = 260, H = 200;
   g.setTransform(1, 0, 0, 1, 0, 0);
@@ -2786,7 +3310,82 @@ function drawPanelTuan(g, n){
   }
 }
 
+/* Marisol's. The others notice a machine watching them; she notices the
+   MANUAL — which is the character, and the tool. */
+function drawPanelMarisol(g, n){
+  const W = 260, H = 200;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = ['#dfeaf7', '#d3e2f2', '#c7daee', '#bcd2ea'][n];
+  g.fillRect(0, 0, W, H);
+
+  /* Mountains and snow. */
+  g.fillStyle = '#9fb0c8';
+  for (const [px, pw, ph] of [[10, 150, 92], [110, 190, 120], [220, 160, 78]]){
+    g.beginPath(); g.moveTo(px, 150); g.lineTo(px + pw / 2, 150 - ph); g.lineTo(px + pw, 150); g.closePath(); g.fill();
+  }
+  g.fillStyle = '#2f4a44';
+  for (let x = 6; x < W; x += 34){
+    for (let t = 0; t < 2; t++){
+      const ty = 150 - t * 13;
+      g.beginPath(); g.moveTo(x - 9 + t * 2, ty); g.lineTo(x, ty - 17); g.lineTo(x + 9 - t * 2, ty); g.closePath(); g.fill();
+    }
+  }
+  g.fillStyle = '#e8eef5'; g.fillRect(0, 150, W, 50);
+  g.fillStyle = '#ffffff'; g.fillRect(0, 150, W, 4);
+
+  if (n < 3){
+    /* The mast, with its base plate — the thing she is actually looking at. */
+    g.fillStyle = '#5f7186'; g.fillRect(172, 32, 13, 118);
+    g.fillStyle = '#48566b';
+    for (let y = 44; y < 148; y += 18){ g.fillRect(166, y, 25, 3); }
+    g.fillRect(160, 142, 37, 9);
+    g.fillStyle = '#3d4a5c'; g.fillRect(164, 22, 30, 15);        // the camera on top
+    g.fillStyle = '#101820'; g.beginPath(); g.arc(166, 30, 5, 0, 6.2832); g.fill();
+    g.fillStyle = '#ff3b52'; g.beginPath(); g.arc(190, 26, 2.6, 0, 6.2832); g.fill();
+    /* Guy wires. */
+    g.strokeStyle = '#6d6a7a'; g.lineWidth = 1.6;
+    g.beginPath(); g.moveTo(178, 40); g.lineTo(124, 150); g.moveTo(178, 40); g.lineTo(236, 150); g.stroke();
+    if (n === 1){                                                 // the plate, read
+      g.fillStyle = '#ffb03a'; g.fillRect(196, 96, 22, 15);
+      g.strokeStyle = '#221d2e'; g.lineWidth = 1.6; g.strokeRect(196, 96, 22, 15);
+      g.fillStyle = '#221d2e';
+      for (let l = 0; l < 3; l++) g.fillRect(199, 99 + l * 4, 16, 1.6);
+    }
+  } else {
+    /* Down. The wire that let go is still whipping. */
+    g.save(); g.translate(150, 140); g.rotate(-1.42);
+    g.fillStyle = '#5f7186'; g.fillRect(-7, -58, 13, 118);
+    g.fillStyle = '#45454e'; g.fillRect(-16, -76, 30, 15);
+    g.restore();
+    g.strokeStyle = '#6d6a7a'; g.lineWidth = 1.8;
+    g.beginPath(); g.moveTo(236, 150);
+    g.quadraticCurveTo(206, 120, 226, 100); g.stroke();
+    g.fillStyle = '#e8eef5';                                      // snow thrown up
+    for (const [sx, sy, sr] of [[96, 146, 9], [120, 152, 6], [78, 152, 5]]){
+      g.beginPath(); g.arc(sx, sy, sr, 0, 6.2832); g.fill();
+    }
+  }
+
+  /* Marisol. Silhouette rule: the coil of cable on her shoulder. */
+  if (n < 3){
+    const sx = [50, 78, 96][n];
+    g.fillStyle = '#221d2e';
+    g.fillRect(sx - 9, 104, 18, 36);
+    g.beginPath(); g.arc(sx, 96, 10, 0, 6.2832); g.fill();
+    g.fillRect(sx - 8, 140, 7, 12); g.fillRect(sx + 2, 140, 7, 12);
+    g.strokeStyle = '#ffb03a'; g.lineWidth = 3.4;                 // the coil
+    g.beginPath(); g.arc(sx - 15, 108, 9, 0, 6.2832); g.stroke();
+    if (n === 2){                                                 // hook in hand
+      g.fillStyle = '#ffb03a'; g.fillRect(sx + 10, 106, 13, 8);
+      g.strokeStyle = '#8a5a12'; g.lineWidth = 2.6;
+      g.beginPath(); g.arc(sx + 26, 110, 6, -2.3, 2.3); g.stroke();
+    }
+  }
+}
+
 $('bIntroGo').onclick = () => { Audio_.arm(); Audio_.play('UI'); startLevel(introNext); };
+
+function showReelPrompt(on){ $('reel').classList.toggle('on', !!on); }
 
 function toggleMute(){
   Audio_.arm();
@@ -2864,7 +3463,7 @@ window.BS = {
   settleTest(){
     const out = [];
     for (let i = 0; i < LEVELS.length; i++){
-      const want = LEVELS[i].parts.filter(p => !['sign','cam','hcam','drone'].includes(p[0])).length;
+      const want = LEVELS[i].parts.filter(p => BUILT_HERE.has(p[0])).length;
       S = headlessLevel(i);
       for (let k = 0; k < 120; k++) step(CONFIG.stepMs);        // 2 s, well past the grace
       const got = S.parts.filter(p => !p._sign).length;
@@ -2966,7 +3565,15 @@ window.BS = {
             if (c0 - S.aliveCams >= want && (want > 0 || S.parts.length < solidCount() + 1)) held++;
           }
           cd.robust = held / R;
-          if (!best || cd.robust > best.robust || (cd.robust === best.robust && cd.score > best.score)) best = cd;
+          /* KILLS FIRST, robustness only as a tie-break. Ranking on robustness
+             alone was wrong in a way that hid for a whole region: a candidate
+             that kills nothing has `want` of 0, so "did it still achieve `want`?"
+             is trivially true and it scores a PERFECT 1.0 — every zero-kill shot
+             outranked every real one whose hook might miss under jitter, and a
+             level solvable in three was reported unsolvable in seven. */
+          if (!best || cd.killed > best.killed ||
+              (cd.killed === best.killed &&
+                (cd.robust > best.robust || (cd.robust === best.robust && cd.score > best.score)))) best = cd;
           await yieldNow();
         }
         if (!best) best = cands[0];
@@ -3084,12 +3691,30 @@ window.BS = {
        level is SUPPOSED to hand out three stars — "Say Cheese" is not a puzzle,
        it is a demonstration that dragging backwards does something. */
     const LO = opts.minClear == null ? 40 : opts.minClear;
-    const HI = opts.maxThreeStar == null ? 92 : opts.maxThreeStar;
-    const tooHard = out.filter(r => r.clear < LO).map(r => r.level + ' ' + r.clear + '%');
+    const HI = opts.maxThreeStar == null ? 97 : opts.maxThreeStar;
+    const MEAN3 = opts.maxMeanThreeStar == null ? 80 : opts.maxMeanThreeStar;
+    /* THE FLOOR HAS TO SCALE WITH HOW MANY SHOTS A LEVEL NEEDS. A flat clear-rate
+       floor punishes long levels for being long: at an identical standard of
+       play, a four-shot level clears p⁴ where a one-shot level clears p. Judged
+       flat, every finale in the game reads as broken while every tutorial reads
+       as fine, and the fix would have been to shorten the finales — which is not
+       a difficulty problem at all. So the floor is on PER-SHOT reliability,
+       clear^(1/par), which is the thing that is actually comparable. */
+    const perShot = r => Math.pow(Math.max(r.clear, 1) / 100, 1 / Math.max(1, r.par));
+    const tooHard = out.filter(r => r.clear < LO && perShot(r) < 0.72)
+                       .map(r => r.level + ' ' + r.clear + '% (' + Math.round(perShot(r) * 100) + '%/shot)');
     const tooEasy = out.filter((r, i) => r.threeStar > HI && !LEVELS[solved[i].index].tutorial)
                        .map(r => r.level + ' ' + r.threeStar + '%');
-    return { rows: out, band: { minClear: LO, maxThreeStar: HI }, tooHard, tooEasy,
-             pass: !tooHard.length && !tooEasy.length };
+    /* The per-level ceiling was 92 and it was the wrong instrument on its own: a
+       level can be reliably solvable AND well designed — the barrel run is meant
+       to work. What actually matters is that stars mean something ACROSS the
+       campaign, so the ceiling now only catches the literal free ones and a
+       campaign mean carries the real check. */
+    const mean3 = out.reduce((a, r) => a + r.threeStar, 0) / (out.length || 1);
+    const tooGenerous = mean3 > MEAN3 ? [Math.round(mean3) + '% mean three-star'] : [];
+    return { rows: out, band: { minClear: LO, maxThreeStar: HI, maxMeanThreeStar: MEAN3 },
+             meanThreeStar: Math.round(mean3), tooHard, tooEasy, tooGenerous,
+             pass: !tooHard.length && !tooEasy.length && !tooGenerous.length };
   },
 
   async all(opts){
