@@ -324,17 +324,27 @@ const LEVELS = [
       ['sign',  640, 600, 'REPORT UNUSUAL CALM'],
     ]},
 
-  /* The slab sits on a BEAM whose ends stick out past the legs, because a target
-     tucked under an overhang cannot be hit at all: anything descending onto it
-     strikes the overhang first. The first build of this level put the slab
-     straight onto the legs and was unwinnable from any angle at any power —
-     150 scripted shots, 0 kills. The exposed beam end is the way in. */
+  /* Two measured rebuilds live in this level.
+
+     ONE: a target tucked under an overhang cannot be hit at all — anything
+     descending onto it strikes the overhang first. The first build sat the slab
+     straight on the legs and was unwinnable from every angle at every power:
+     150 scripted shots, 0 kills, 0 columns broken. The beam's ends now stick out
+     past the legs, and that overhang is the way in.
+
+     TWO: the beam was wood, and wood was too tough for the job. Across 1771
+     scripted shots only 16% touched the structure at all and the best single hit
+     dealt 38.8 against 45 hp — two precise shots through a narrow window, which
+     is a harder aiming test than level 10. A two-legged frame is also too wide
+     to topple, so there was no second route. The beam is now GLASS, which is
+     both the fix and the joke: OmniPeek is paid per installed unit, so of course
+     it hung a concrete slab on a pane of glass. */
   { id:'r1-06', name:'Hard Hat Area', par:2, tools:4,
     teach:'You will never break that slab. You can absolutely drop it.',
     parts:[
       ['wood',     1120, 625, 34, 190],
       ['wood',     1300, 625, 34, 190],
-      ['wood',     1210, 519, 250, 22],
+      ['glass',    1210, 519, 250, 22],
       ['concrete', 1210, 483, 120, 50],
       ['cam',      1210, 707],
       ['barrel',    990, 694, 26],
