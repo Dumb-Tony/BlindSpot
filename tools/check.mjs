@@ -60,13 +60,13 @@ section('B. Level content');
 const block = html.match(/==== LEVELS:BEGIN ====[\s\S]*?\n([\s\S]*?)\/\* ==== LEVELS:END ====/);
 ok(!!block, 'LEVELS block found between its markers');
 const LEVELS = new Function(block[1] + '\nreturn LEVELS;')();
-const REGION_IDS = ['r1', 'r2'];
-ok(LEVELS.length === 20, 'two regions of ten levels', '(' + LEVELS.length + ')');
+const REGION_IDS = ['r1', 'r2', 'r3'];
+ok(LEVELS.length === 30, 'three regions of ten levels', '(' + LEVELS.length + ')');
 for (const r of REGION_IDS)
   ok(LEVELS.filter(L => L.id.startsWith(r)).length === 10, r + ' has ten levels');
 
-const KINDS = new Set(['wood', 'glass', 'concrete', 'steel', 'barrel', 'sign', 'cam', 'hcam']);
-const TOOL_IDS = new Set(['chunk', 'paint']);
+const KINDS = new Set(['wood', 'glass', 'concrete', 'steel', 'barrel', 'sign', 'cam', 'hcam', 'drone']);
+const TOOL_IDS = new Set(['chunk', 'paint', 'emp']);
 
 /* Read the tuning out of the page rather than restating it here. The reachability
    rule below is only as good as its idea of how hard the sling throws, and a
@@ -92,21 +92,22 @@ for (const L of LEVELS) {
   ok(n >= L.par + 1, tag + ' · budget leaves room to fail down to one star', '(par ' + L.par + ', ' + n + ' tools)');
   ok(typeof L.teach === 'string' && L.teach.length > 10, tag + ' · says what it teaches');
 
-  const cams = L.parts.filter(p => p[0] === 'cam' || p[0] === 'hcam');
+  const cams = L.parts.filter(p => p[0] === 'cam' || p[0] === 'hcam' || p[0] === 'drone');
   const armoured = L.parts.filter(p => p[0] === 'hcam');
   ok(cams.length >= 1, tag + ' · has at least one camera', '(' + cams.length + ')');
   /* One tool per camera is only the right arithmetic while every tool kills
      exactly one thing. A paint bomb takes a whole cluster, so a level with paint
      in it is ALLOWED to field more cameras than tools — that is the point of the
      tool, and the shot sweep is what proves the level is actually winnable. */
-  ok(cams.length <= n || supply.includes('paint'),
+  ok(cams.length <= n || supply.includes('paint') || supply.includes('emp'),
      tag + ' · cameras (' + cams.length + ') vs tools (' + n + ') is winnable arithmetic');
 
   /* An armoured housing is immune to impact by design, so a level that contains
      one and supplies no paint is unwinnable by construction — the exact class of
      bug that shipped in r1-06 and took a scripted sweep to notice. */
   if (armoured.length)
-    ok(supply.includes('paint'), tag + ' · has armoured cameras AND paint to deal with them',
+    ok(supply.includes('paint') || supply.includes('emp'),
+       tag + ' · has armoured cameras AND a tool that can beat armour',
        '(' + armoured.length + ' armoured)');
 
   for (const p of L.parts) {
@@ -138,7 +139,7 @@ const G_STEP = CONFIG.gravity * 0.001 * (1000 / 60) ** 2;
 const vMax = CONFIG.maxPull * CONFIG.power;
 const LAUNCH_Y = CONFIG.launchY;
 for (const L of LEVELS) {
-  for (const p of L.parts.filter(q => q[0] === 'cam' || q[0] === 'hcam')) {
+  for (const p of L.parts.filter(q => q[0] === 'cam' || q[0] === 'hcam' || q[0] === 'drone')) {
     const d = p[1] - LAUNCH_X, h = LAUNCH_Y - p[2];
     const vNeed = Math.sqrt(G_STEP * (h + Math.hypot(d, h)));
     const frac = vNeed / vMax;

@@ -280,12 +280,23 @@ const CONFIG = Object.freeze({
   shakeMax: 15, shakeDecay: 0.87,
   hitStopMs: 45, hitStopMassMin: 2.5,
 
-  /* The camera's floor is 1, not 2, because at 2 a camera could ride a whole
-     tower to the ground and get up again on 2.8 hp — measured. A structure
-     coming down on top of a camera has to finish it, or "collapse the tower"
-     stops being one of the disable routes the design promises. */
-  camHp: 12, camFloor: 1, camW: 38, camH: 26,
-  camDetachImpulse: 4,         // knocked off its mounting, but not necessarily dead
+  /* CAMERAS ARE MEANT TO BE FRAGILE. §7.5: the puzzle is REACHING one, never
+     grinding it down — so anything that plainly should finish a camera has to
+     finish it, first time.
+
+     Two measured steps down. The floor went 2 → 1 when a camera rode an entire
+     tower to the ground and got up again on 2.8 hp. HP then went 12 → 7 because
+     they still did not read as fragile in play: a hit that obviously connected
+     could leave one alive, which makes the player doubt the hit rather than
+     their aim. At 7, a 40 px fall (impulse ≈ 5.6 → 13.8 damage) finishes one and
+     a settling nudge (impulse ≈ 2 → 3 damage) still does not.
+
+     The armoured housing is deliberately untouched: being hard to kill is the
+     entire point of it. */
+  camHp: 7, camFloor: 1, camW: 38, camH: 26,
+  droneW: 46, droneH: 22,
+  droneStunImpulse: 3,         // a clipped rotor drops it, fatal or not
+  camDetachImpulse: 3,         // knocked off its mounting, but not necessarily dead
   trailStep: 3,
 });
 /* ==== CONFIG:END ==== */
@@ -311,6 +322,10 @@ const MATERIALS = {
      the Region 2 mechanic, not a difficulty tax. The lens is still a lens, and
      paint does not care how thick the box around it is. */
   hcam:     { hp: 60, floor: 26, density: 0.0016, rest: 0.05, fric: 0.70, fill: '#5f7186', edge: '#33404f', alpha: 1, sfx: 'CAMERA_DEAD' },
+  /* A drone. Fragile to a direct hit, and heavy enough that losing power turns it
+     into a falling object worth aiming underneath — which is the whole reason it
+     is in the game rather than being a camera on a tall post. */
+  drone:    { hp: 8,  floor: 2, density: 0.0016, rest: 0.15, fric: 0.50, fill: '#48566b', edge: '#2b3542', alpha: 1, sfx: 'CAMERA_DEAD' },
 };
 
 /* Tools. Every one of them flies the same way and is released the same way —
@@ -337,6 +352,17 @@ const TOOLS = {
        should do and what every level here was designed assuming. */
     burst: true, splashR: 150, fuseR: 62, noDamage: true,
   },
+  /* Tuan's. The one thing it does that the Paint Bomb cannot is REACH THROUGH
+     SOLID MATERIAL — a pulse does not care what is in the way — and in exchange
+     its radius is smaller. That single trade is the whole of Region 3: paint is
+     the answer to a spread-out cluster in the open, the EMP is the answer to
+     anything behind cover, and neither one replaces the other. */
+  emp: {
+    name: 'EMP Jar', rebel: 'Tuan Vo', pip: '#6fe3d8',
+    blurb: 'Pops once. Everything powered nearby stops being powered.',
+    radius: 13, sides: 6, density: 0.0012, rest: 0.15, fric: 0.5, frictionAir: 0,
+    burst: true, splashR: 132, fuseR: 62, noDamage: true, throughWalls: true,
+  },
 };
 
 const REBELS = {
@@ -344,6 +370,8 @@ const REBELS = {
            why: 'A camera fined his neighbour for sitting on the harbour wall.' },
   sofia: { name: 'Sofia Brankov', region: 'Kestrel Row', tool: 'paint',
            why: 'She had been painting over cameras by hand for two years and got tired of climbing.' },
+  tuan:  { name: 'Tuan Vo', region: 'New Meridian', tool: 'emp',
+           why: 'Resigned from the robotics club in protest and took the battery pack with him.' },
 };
 
 /* A level's `tools` is either a COUNT (that many Chunks — every Region 1 level,
@@ -362,6 +390,8 @@ const REGIONS = [
     blurb:'A sun-bleached harbour town whose Ministry has just discovered lenses.' },
   { id:'r2', name:'Kestrel Row', rebel:'sofia', tools:'The Chunk · Paint Bomb', starGate:18,
     blurb:'Dense blocks, alleys and rooftops. Up here the cameras wear armour.' },
+  { id:'r3', name:'New Meridian', rebel:'tuan', tools:'Chunk · Paint · EMP', starGate:36,
+    blurb:'Glass towers and too many lights. Half the cameras are in the air.' },
 ];
 
 function regionOf(i){ const p = LEVELS[i].id.slice(0, 2); return Math.max(0, REGIONS.findIndex(r => r.id === p)); }
@@ -596,12 +626,12 @@ const LEVELS = [
   { id:'r2-07', name:'Split Duty', par:2, tools:['paint','paint','chunk'],
     teach:'Two clusters, too far apart to share. Spend one jar on each.',
     parts:[
-      ['concrete', 1000, 675, 170, 90],
-      ['cam',       950, 617],
-      ['cam',      1050, 617],
-      ['concrete', 1330, 675, 170, 90],
-      ['hcam',     1280, 611],
-      ['hcam',     1380, 611],
+      ['concrete', 1000, 675, 210, 90],
+      ['cam',       920, 617],
+      ['cam',      1080, 617],
+      ['concrete', 1330, 675, 210, 90],
+      ['hcam',     1250, 611],
+      ['hcam',     1410, 611],
       ['sign',      600, 600, 'YOUR COOPERATION HAS BEEN NOTED AND FILED'],
     ]},
 
@@ -653,6 +683,148 @@ const LEVELS = [
       ['cam',      1350, 567],
       ['sign',      600, 560, 'KESTREL ROW IS PROUD TO BE FULLY OBSERVED'],
     ]},
+
+  /* ── REGION 3 · NEW MERIDIAN ─ Tuan "Ampere" Vo ─ EMP Jar ─────────────────
+     The region turns on ONE difference between the two splash tools: paint needs
+     a clear line to a lens and the EMP does not, and in exchange the EMP's reach
+     is smaller. So paint answers a spread-out cluster in the open and the EMP
+     answers anything behind cover, and neither replaces the other.
+
+     Drones are the second idea. A powered drone holds station; disabled, it is
+     just a heavy object in the wrong place — and since a hit drops one whether
+     or not it kills it, a drone falling into another drone is this region's
+     signature chain reaction. */
+
+  { id:'r3-01', name:'Ampere', par:1, tools:['emp','emp','emp'], tutorial:true,
+    teach:'A wall is not cover. The pulse does not go around it.',
+    parts:[
+      ['concrete', 1150, 625, 26, 190],
+      ['concrete', 1270, 625, 26, 190],
+      ['concrete', 1210, 518, 170, 24],
+      ['cam',      1190, 707],
+      ['cam',      1230, 707],
+      ['sign',      600, 600, 'NEW MERIDIAN: A SMARTER PLACE TO BE SEEN'],
+    ]},
+
+  { id:'r3-02', name:'Drone Delivery', par:2, tools:['chunk','chunk','emp','chunk'],
+    teach:'They fly now. They do not fly for long.',
+    parts:[
+      ['drone', 1080, 420],
+      ['drone', 1260, 380],
+      ['concrete', 1180, 690, 200, 60],
+      ['sign',  600, 600, 'AERIAL COVERAGE IS COVERAGE YOU DESERVE'],
+    ]},
+
+  { id:'r3-03', name:'Blind Corner', par:2, tools:['paint','emp','emp'],
+    teach:'Paint needs to see a lens. This one has nothing to see it with.',
+    parts:[
+      ['concrete', 1140, 640, 26, 160],
+      ['concrete', 1280, 640, 26, 160],
+      ['concrete', 1210, 549, 180, 22],
+      ['hcam',     1210, 701],
+      ['sign',      600, 600, 'PRIVACY IS VERY SUSPICIOUS'],
+    ]},
+
+  { id:'r3-04', name:'Falling Objects', par:2, tools:['emp','chunk','emp','chunk'],
+    teach:'Do not aim at the camera. Aim at the thing above the camera.',
+    parts:[
+      ['wood',  1220, 620, 28, 200],
+      ['wood',  1220, 511, 120, 18],
+      ['cam',   1220, 489],
+      ['drone', 1180, 250],
+      ['wood',  1400, 655, 24, 130],
+      ['cam',   1400, 577],
+      ['sign',   600, 600, 'UNOBSERVED AREAS ARE BEING ADDRESSED'],
+    ]},
+
+  { id:'r3-05', name:'Mixed Signals', par:3, tools:['emp','chunk','paint','emp','chunk'],
+    teach:'Three targets, three different answers. Pick them in the right order.',
+    parts:[
+      ['concrete', 1050, 645, 120, 150],
+      ['hcam',     1050, 551],
+      ['wood',     1240, 635, 26, 170],
+      ['cam',      1240, 537],
+      ['drone',    1400, 380],
+      ['sign',      600, 600, 'YOUR COOPERATION HAS BEEN NOTED AND FILED'],
+    ]},
+
+  { id:'r3-06', name:'Out of Range', par:2, tools:['emp','emp','paint'],
+    teach:'The pulse is smaller than the paint. Two clusters, two jars.',
+    parts:[
+      ['concrete', 1000, 680, 140, 80],
+      ['cam',       960, 627],
+      ['cam',      1040, 627],
+      ['concrete', 1300, 680, 140, 80],
+      ['cam',      1260, 627],
+      ['cam',      1340, 627],
+      ['sign',      600, 600, '47 CAMERAS SERVING THIS STREET. TARGET: 60.'],
+    ]},
+
+  { id:'r3-07', name:'The Server Shed', par:2, tools:['emp','chunk','paint','emp'],
+    teach:'Through the roof, or take the roof off first. Both work.',
+    parts:[
+      ['wood', 1130, 665, 22, 110],
+      ['wood', 1290, 665, 22, 110],
+      ['wood', 1210, 600, 200, 20],
+      ['cam',  1170, 707],
+      ['cam',  1250, 707],
+      ['sign',  600, 600, 'REPORT UNUSUAL CALM'],
+    ]},
+
+  { id:'r3-08', name:'Skyline', par:2, tools:['emp','chunk','emp','chunk'],
+    teach:'Take the top one down and see what it lands on.',
+    parts:[
+      ['drone', 1180, 240],
+      ['drone', 1200, 400],
+      ['drone', 1220, 556],
+      ['wood',  1400, 650, 24, 140],
+      ['cam',   1400, 567],
+      ['sign',   600, 600, 'CITIZENVISION™ — BECAUSE SOMEONE SHOULD BE WATCHING'],
+    ]},
+
+  { id:'r3-09', name:'Redundancy', par:2, tools:['emp','paint','chunk','emp','paint'],
+    teach:'Six of them. Five tools. The arithmetic only works if the jars land well.',
+    parts:[
+      ['concrete', 1080, 685, 240, 70],
+      ['cam',       990, 637],
+      ['cam',      1080, 637],
+      ['cam',      1170, 637],
+      ['concrete', 1250, 630, 26, 180],
+      ['concrete', 1380, 675, 150, 90],
+      ['hcam',     1340, 611],
+      ['hcam',     1420, 611],
+      ['sign',      600, 560, 'NOTHING TO HIDE? NOTHING TO WORRY ABOUT.'],
+    ]},
+
+  /* Par 4, not 3. There IS a shot that takes all six at once — 36°, full pull —
+     but the robustness pass rejects it, and rightly: it survives almost no aim
+     error, so it is a thing to discover rather than a thing to plan. The
+     reliable route is four pulses, and par should be what a player can repeat.
+     The level ends up satisfying §8.2 exactly: obvious six, efficient four,
+     unexpected one. */
+  { id:'r3-10', name:'The Hive', par:4, tools:['emp','emp','emp','chunk','paint','emp','chunk'],
+    teach:'Region finale. A docking tower, two housings, and two of them airborne.',
+    parts:[
+      ['concrete', 1200, 690, 260, 60],
+      ['steel',    1200, 590, 36, 140],
+      ['wood',     1200, 511, 240, 18],
+      ['cam',      1100, 489],
+      ['cam',      1300, 489],
+      ['steel',    1200, 432, 36, 140],
+      ['wood',     1200, 353, 180, 18],
+      ['hcam',     1150, 325],
+      ['hcam',     1250, 325],
+      /* 110 apart, not 200. Two targets share a pulse only if the BURST POINT is
+         within splash of both — and with open air between them the burst happens
+         where the fuse trips, ~62 px out from the first one reached. At 200 apart
+         the second drone was then 138 px away against a 132 px splash, so the
+         pair could never share and the cheapest clear was four shots against a
+         par of three. Targets standing on a surface do not have this problem:
+         the jar strikes the deck between them and bursts where it is aimed. */
+      ['drone',    1145, 170],
+      ['drone',    1255, 170],
+      ['sign',      600, 560, 'THE HIVE — PUBLIC SAFETY OBSERVATION NETWORK'],
+    ]},
 ];
 /* ==== LEVELS:END ==== */
 
@@ -702,6 +874,12 @@ const CUES = {
   PAINT_BURST:     { gap: 40,  parts:[[300,110,0.16,'sine',0.20],[150,70,0.22,'triangle',0.12,0.02]], noise:[0.14,0.22,900,0.8] },
   PAINT_HIT:       { gap: 40,  parts:[[300,110,0.16,'sine',0.22],[520,780,0.18,'sine',0.14,0.06]], noise:[0.16,0.24,1100,0.8] },
   CAMERA_BLINDED:  { gap: 30,  parts:[[620,300,0.22,'sine',0.16],[210,120,0.30,'triangle',0.13,0.05]], noise:[0.10,0.18,600,1.1,0.01] },
+  /* The EMP is a THUMP and a swept whine, not a bang — it breaks nothing, and it
+     must not sound like it does. The kill cue adds the descending whine of a
+     rotor losing power, which is the sound of a drone about to become debris. */
+  EMP_BURST:       { gap: 40,  parts:[[900,120,0.30,'sine',0.20],[2200,300,0.16,'triangle',0.12],[70,40,0.30,'sine',0.16,0.01]], noise:[0.10,0.16,2600,0.7] },
+  EMP_HIT:         { gap: 40,  parts:[[1200,90,0.34,'sine',0.24],[2600,320,0.20,'triangle',0.14],[70,40,0.34,'sine',0.18,0.01]], noise:[0.13,0.20,3000,0.7] },
+  CAMERA_FRIED:    { gap: 30,  parts:[[1500,140,0.20,'square',0.16],[300,90,0.34,'sawtooth',0.15,0.05]], noise:[0.12,0.22,2400,2.4,0.01] },
   COLLAPSE:        { gap:200,  parts:[[70,36,0.85,'sawtooth',0.24],[110,55,0.60,'triangle',0.13,0.04]] },
   LEVEL_COMPLETE:  { gap:400,  parts:[[523,523,0.18,'sine',0.20],[659,659,0.18,'sine',0.19,0.13],[784,784,0.42,'sine',0.20,0.26]] },
   LEVEL_FAILED:    { gap:400,  parts:[[330,196,0.42,'sine',0.20],[165,110,0.55,'triangle',0.13,0.05]] },
@@ -855,7 +1033,7 @@ function buildLevel(index){
 
   const S = {
     def, index, rng,
-    parts: [], cams: [], signs: [], frags: [], particles: [],
+    parts: [], cams: [], signs: [], frags: [], particles: [], rings: [],
     proj: null, trail: [], lastTrail: [],
     toolQueue: toolList(def), toolsUsed: 0, toolsLeft: toolList(def).length,
     splats: [],
@@ -881,7 +1059,11 @@ function buildLevel(index){
   const solid = [];
   for (const p of def.parts){
     const kind = p[0];
-    if (kind === 'cam' || kind === 'hcam' || kind === 'sign') continue;
+    /* Every target kind must be listed here as well as in the target pass, or it
+       is ALSO built as a rectangle with no size. The guard in partBody exists
+       because this exact omission shipped once for `hcam`; it caught `drone`
+       immediately, which is the whole argument for the guard. */
+    if (kind === 'cam' || kind === 'hcam' || kind === 'drone' || kind === 'sign') continue;
     let b;
     if (kind === 'barrel'){
       const r = p[3] || 26, m = MATERIALS.barrel;
@@ -914,20 +1096,33 @@ function buildLevel(index){
      a hit, falling debris, the mount breaking, or being knocked off the bracket. */
   let group = 0;
   for (const p of def.parts){
-    if (p[0] !== 'cam' && p[0] !== 'hcam') continue;
-    const housed = p[0] === 'hcam';
-    const m = housed ? MATERIALS.hcam : MATERIALS.cam;
-    const w = housed ? CONFIG.camW + 14 : CONFIG.camW, h = housed ? CONFIG.camH + 12 : CONFIG.camH;
+    if (p[0] !== 'cam' && p[0] !== 'hcam' && p[0] !== 'drone') continue;
+    const housed = p[0] === 'hcam', flying = p[0] === 'drone';
+    const m = flying ? MATERIALS.drone : housed ? MATERIALS.hcam : MATERIALS.cam;
+    const w = flying ? CONFIG.droneW : housed ? CONFIG.camW + 14 : CONFIG.camW;
+    const h = flying ? CONFIG.droneH : housed ? CONFIG.camH + 12 : CONFIG.camH;
     const c = Bodies.rectangle(p[1], p[2], w, h, {
       density: m.density, restitution: m.rest, friction: m.fric, slop: 0.02,
     });
     c._kind = 'cam'; c._mat = m; c._hp = m.hp; c._maxHp = m.hp;
-    c._housed = housed;
+    c._housed = housed; c._flying = flying;
     c._w = w; c._h = h;
     c._alive = true; c._detached = false;
     c._face = (p[3] || 0) * Math.PI / 180;
     c._phase = rng.range(0, Math.PI * 2);      // so a bank of them does not sweep in unison
     c._sweep = 0; c._look = 0;
+    if (flying){
+      /* Never let a powered drone sleep. Its hover is slow enough to trip the
+         sleep threshold, and a sleeping drone cannot be woken by the collision
+         that is supposed to knock it out of the sky either. */
+      c.sleepThreshold = Infinity;
+      c._home = { x: p[1], y: p[2] };
+      c._bob = rng.range(0, Math.PI * 2);
+      c._rotor = rng.range(0, Math.PI * 2);
+      Composite.add(world, c);
+      S.cams.push(c);
+      continue;                                 // a drone is never bracketed to anything
+    }
 
     const mount = findMount(solid, p[1], p[2], h / 2);
     if (mount){
@@ -1012,7 +1207,12 @@ function applyDamage(body, j, other){
 
   if (body._kind === 'cam'){
     if (!body._alive) return;
-    if (!body._detached && j > CONFIG.camDetachImpulse) detachCam(body);
+    if (!body._detached && !body._flying && j > CONFIG.camDetachImpulse) detachCam(body);
+    /* A clipped rotor drops a drone even when the hit is nowhere near fatal.
+       Without this a powered drone is kinematically held and therefore
+       immovable, so one falling drone cannot knock another out of the air — and
+       the best chain reaction this region has would silently not exist. */
+    if (body._flying && j > CONFIG.droneStunImpulse) groundDrone(body);
     if (dmg <= 0){ Audio_.play('IMPACT', 0.4); return; }
     body._hp -= dmg;
     if (body._hp <= 0) killCam(body);
@@ -1040,21 +1240,40 @@ function contactPoint(a, b){
    ray against the real bodies, which is what makes the tool a puzzle rather than
    a radius: a pane of glass between the bomb and a camera stops the paint, and
    the answer is a rock first and paint second. */
-function paintBurst(p){
-  const T = TOOLS.paint;
-  const solid = S.parts.filter(b => b._hp > 0);
+/* One burst, two tools. Everything about them is shared except the two lines
+   that matter: whether a wall stops it, and what a disabled target looks like
+   afterwards. */
+function toolBurst(p, id){
+  const T = TOOLS[id];
+  const solid = T.throughWalls ? null : S.parts.filter(b => b._hp > 0);
   let got = 0;
   for (const c of S.cams){
     if (!c._alive) continue;
     const d = Math.hypot(c.position.x - p.x, c.position.y - p.y);
     if (d > T.splashR) continue;
-    /* Start the ray clear of whatever the bomb just hit, or the burst is blocked
-       by the surface it landed on and the tool never works at all. */
-    const ux = (c.position.x - p.x) / (d || 1), uy = (c.position.y - p.y) / (d || 1);
-    const from = { x: p.x + ux * 20, y: p.y + uy * 20 };
-    if (d > 24 && Matter.Query.ray(solid, from, c.position, 3).length) continue;
-    blindCam(c); got++;
+    if (solid){
+      /* Start the ray clear of whatever the bomb just hit, or the burst is
+         blocked by the surface it landed on and the tool never works at all. */
+      const ux = (c.position.x - p.x) / (d || 1), uy = (c.position.y - p.y) / (d || 1);
+      const from = { x: p.x + ux * 20, y: p.y + uy * 20 };
+      if (d > 24 && Matter.Query.ray(solid, from, c.position, 3).length) continue;
+    }
+    if (id === 'emp') fryCam(c); else blindCam(c);
+    got++;
   }
+
+  if (id === 'emp'){
+    S.rings.push({ x: p.x, y: p.y, r: 6, max: T.splashR, life: 0 });
+    for (let i = 0; i < 22 && S.particles.length < CONFIG.particleMax; i++){
+      const a = S.rng.range(0, 6.2832), sp = S.rng.range(2.5, 9);
+      S.particles.push({ x: p.x, y: p.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 0, max: S.rng.range(180, 460), r: S.rng.range(1.4, 3.4), c: '#6fe3d8', g: 0.05 });
+    }
+    Audio_.play(got ? 'EMP_HIT' : 'EMP_BURST');
+    S.shake = Math.min(CONFIG.shakeMax, S.shake + 4);
+    return;
+  }
+
   addSplats(p);
   for (let i = 0; i < 26 && S.particles.length < CONFIG.particleMax; i++){
     const a = S.rng.range(0, 6.2832), sp = S.rng.range(1.5, 7);
@@ -1098,6 +1317,40 @@ function blindCam(c){
   if (S.aliveCams === 0){ S.slowmo = 620; win(); }
 }
 
+/* Fried. The lens is fine and the power is gone — sparks, a dead LED, and for a
+   drone the thing that makes the tool worth having: it stops flying. A drone
+   dropping out of the air is a heavy object arriving somewhere it was not, which
+   is where this region's chain reactions come from. */
+function fryCam(c){
+  if (!c._alive) return;
+  c._alive = false; c._fried = true;
+  S.aliveCams--;
+  if (c._flying) groundDrone(c);
+  Audio_.play('CAMERA_FRIED');
+  spark(c.position, 14);
+  for (let i = 0; i < 8 && S.particles.length < CONFIG.particleMax; i++){
+    S.particles.push({ x: c.position.x, y: c.position.y, vx: S.rng.range(-1.6, 1.6), vy: S.rng.range(-2.2, -0.4),
+      life: 0, max: S.rng.range(500, 1100), r: S.rng.range(3, 7), c: '#7a7a86', g: -0.02 });
+  }
+  syncCamPips();
+  if (S.aliveCams === 0){ S.slowmo = 620; win(); }
+}
+
+/* A drone holds its station by being driven, not by hovering — so losing power
+   is simply the moment it becomes an ordinary falling body. */
+function groundDrone(c){
+  if (!c._flying) return;
+  c._flying = false;
+  /* WAKE IT. Station-keeping is a few tenths of a pixel a step, which is under
+     Matter's sleep threshold, so a drone that had been hovering for a while was
+     asleep — and a sleeping body ignores gravity. The drone lost power, went
+     dark, and hung in the air exactly where it was. Every falling-drone chain
+     reaction in the region was silently inert. */
+  Matter.Sleeping.set(c, false);
+  Body.setVelocity(c, { x: 0, y: 0 });
+  Body.setAngularVelocity(c, S.rng.range(-0.12, 0.12));
+}
+
 function detachCam(c){
   if (c._detached) return;
   c._detached = true;
@@ -1111,6 +1364,7 @@ function killCam(c){
   c._alive = false;
   S.aliveCams--;
   detachCam(c);
+  if (c._flying) groundDrone(c);
   Audio_.play('CAMERA_DEAD');
   spark(c.position, 16);
   burst(c.position, 10, '#3d4a5c');
@@ -1236,7 +1490,32 @@ function step(dt){
     const at = { x: b.position.x, y: b.position.y };
     Composite.remove(world, b);
     if (S.proj === b) S.proj = null;
-    paintBurst(at);
+    toolBurst(at, b._tool);
+  }
+
+  /* Drones hold station. Driven rather than hovering — same trick as a bracketed
+     camera, and for the same reason: a body balanced by an upward force jitters
+     and drifts, and a station-keeping drone that wanders is a target the player
+     cannot lead. Velocity is set from the positional delta so a rock still reads
+     a real approach speed when it arrives. */
+  for (const c of S.cams){
+    if (!c._flying || !c._alive) continue;
+    c._bob += dt * 0.0026;
+    const nx = c._home.x + Math.sin(c._bob * 0.7) * 4;
+    const ny = c._home.y + Math.sin(c._bob) * 7;
+    /* Velocity is the delta between two HOVER POINTS, not between the hover point
+       and wherever gravity dragged the body — otherwise the correction for the
+       drift is reported as the drone's speed, which reads as 1–2 px/step of
+       motion for something visibly holding station. That number is not cosmetic:
+       the settle check watches it, so a level containing one live drone would
+       never settle and every shot would stall for the full eight-second cap. */
+    const px = c._hoverX == null ? nx : c._hoverX;
+    const py = c._hoverY == null ? ny : c._hoverY;
+    Body.setPosition(c, { x: nx, y: ny });
+    Body.setVelocity(c, { x: nx - px, y: ny - py });
+    Body.setAngle(c, Math.sin(c._bob * 0.5) * 0.05);
+    Body.setAngularVelocity(c, 0);
+    c._hoverX = nx; c._hoverY = ny;
   }
 
   /* Mounted cameras ride their bracket. */
@@ -1281,6 +1560,13 @@ function step(dt){
     if (p.y > CONFIG.groundY){ p.y = CONFIG.groundY; p.vy *= -0.35; p.vx *= 0.7; }
   }
 
+  for (let i = S.rings.length - 1; i >= 0; i--){
+    const r = S.rings[i];
+    r.life += dt;
+    r.r = Math.min(r.max, r.max * (1 - Math.pow(1 - r.life / 260, 3)));
+    if (r.life > 420) S.rings.splice(i, 1);
+  }
+
   S.shake *= CONFIG.shakeDecay;
   if (S.slowmo > 0) S.slowmo -= dt;
 
@@ -1295,7 +1581,9 @@ function step(dt){
   /* Settle: everything asleep or crawling, held, or the hard cap (GDD §7.6). */
   let maxV = 0;
   for (const b of Composite.allBodies(world)){
-    if (b.isStatic || b.isSleeping) continue;
+    /* A powered drone is holding station under its own control, not settling.
+       Counting its bob as motion keeps the world "busy" forever. */
+    if (b.isStatic || b.isSleeping || (b._flying && b._alive)) continue;
     const v = Math.hypot(b.velocity.x, b.velocity.y);
     if (v > maxV) maxV = v;
   }
@@ -1392,6 +1680,7 @@ function draw(){
   drawTrail(S.lastTrail, 'rgba(246,239,226,0.18)');
   drawTrail(S.trail, 'rgba(255,225,77,0.5)');
   if (S.aiming) drawAim();
+  drawRings();
   drawParticles();
 
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -1400,6 +1689,7 @@ function draw(){
 const SKIES = [
   ['#ffd98a', '#ff9a6c', '#e0525f'],   // Porto Vela — warm harbour dusk
   ['#f6c98a', '#c98aa8', '#6a4a86'],   // Kestrel Row — city dusk, cooler and higher
+  ['#eafcff', '#a8dcea', '#5f93ac'],   // New Meridian — cold clean daylight off glass
 ];
 function drawSky(){
   const p = SKIES[Math.min(regionOf(S.index), SKIES.length - 1)];
@@ -1507,8 +1797,74 @@ function drawBackKestrel(){
   ctx.restore();
 }
 
+/* New Meridian. Glass towers, mint and white, and far too many lights — a city
+   that has been told it is smart. Cool and clean where Porto Vela is warm and
+   Kestrel Row is dense, so the region is recognisable before a single camera is
+   on screen. */
+function drawBackMeridian(){
+  const px = S.camX;
+  ctx.save();
+
+  const sx = 380 - px * 0.03;
+  const halo = ctx.createRadialGradient(sx, 120, 30, sx, 120, 320);
+  halo.addColorStop(0, 'rgba(226,255,250,0.50)'); halo.addColorStop(1, 'rgba(226,255,250,0)');
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(sx, 120, 320, 0, 6.2832); ctx.fill();
+
+  const r = new Rng(3303, 'meridian');
+  const ranks = [
+    { off: -700, sp: 0.09, base: 660, min: 300, max: 520, fill: '#b9d9e0', glass: 'rgba(255,255,255,0.30)' },
+    { off: -540, sp: 0.19, base: 682, min: 360, max: 600, fill: '#8fbccb', glass: 'rgba(226,255,250,0.34)' },
+    { off: -380, sp: 0.33, base: 704, min: 420, max: 660, fill: '#5f93ac', glass: 'rgba(180,240,236,0.30)' },
+  ];
+  for (const rk of ranks){
+    let x = rk.off - px * rk.sp;
+    for (let i = 0; i < 24; i++){
+      const w = r.range(70, 130), h = r.range(rk.min, rk.max), top = rk.base - h;
+      ctx.fillStyle = rk.fill;
+      ctx.fillRect(x, top, w, h + 40);
+      /* A tapered crown and a mast — the shape a building gets when the brief
+         said "landmark". */
+      if (r.chance(0.45)){
+        ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x + w * 0.5, top - r.range(30, 70));
+        ctx.lineTo(x + w, top); ctx.closePath(); ctx.fill();
+      }
+      if (r.chance(0.5)){
+        ctx.strokeStyle = rk.fill; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(x + w * 0.5, top); ctx.lineTo(x + w * 0.5, top - r.range(40, 90)); ctx.stroke();
+      }
+      /* Continuous glazing bands, not punched windows — this is curtain wall. */
+      ctx.fillStyle = rk.glass;
+      for (let b = 0; b < Math.floor(h / 30); b++) ctx.fillRect(x + 5, top + 12 + b * 30, w - 10, 16);
+      ctx.fillStyle = 'rgba(255,255,255,0.34)'; ctx.fillRect(x + 4, top, 5, h);
+      x += w + 14;
+    }
+  }
+
+  /* Far-off traffic: other people's drones, minding other people's business. */
+  ctx.fillStyle = 'rgba(60,90,110,0.5)';
+  const dr = new Rng(7707, 'traffic');
+  for (let i = 0; i < 14; i++){
+    const dx = dr.range(-200, 2100) - px * 0.5;
+    const dy = dr.range(120, 420) + Math.sin(S.elapsed * 0.0006 + i) * 6;
+    ctx.fillRect(dx, dy, 13, 5);
+    ctx.fillRect(dx + 2, dy - 4, 3, 4); ctx.fillRect(dx + 8, dy - 4, 3, 4);
+  }
+
+  ctx.fillStyle = '#41667a'; ctx.fillRect(-600, 700, 4000, CONFIG.groundY - 700);
+  ctx.fillStyle = '#57829a'; ctx.fillRect(-600, 700, 4000, 6);
+
+  const haze = ctx.createLinearGradient(0, 120, 0, CONFIG.groundY);
+  haze.addColorStop(0, 'rgba(190,235,240,0.12)');
+  haze.addColorStop(0.62, 'rgba(160,215,225,0.34)');
+  haze.addColorStop(1, 'rgba(140,200,215,0.42)');
+  ctx.fillStyle = haze; ctx.fillRect(-900, 120, 4200, CONFIG.groundY - 120);
+  ctx.restore();
+}
+
 function drawBack(){
-  if (regionOf(S.index) === 1) return drawBackKestrel();
+  const reg = regionOf(S.index);
+  if (reg === 2) return drawBackMeridian();
+  if (reg === 1) return drawBackKestrel();
   const px = S.camX;
   ctx.save();
 
@@ -1788,7 +2144,82 @@ function drawSplats(){
 
 /* The camera is the pig. It must be the most readable object on screen: cold
    blue-grey in a warm frame, an oversized lens, and a red light you can find. */
+/* A drone reads as a drone from its silhouette alone: two rotor booms above a
+   body with a lens slung under it. Alive, the rotors are a blur and there is a
+   shadow on the ground under it — the shadow is what tells the player, without
+   a word, that this thing is in the AIR and that something is underneath it. */
+function drawDrone(c){
+  const w = c._w, h = c._h;
+
+  if (c._alive){
+    const gy = CONFIG.groundY, fall = Math.max(0, Math.min(1, (gy - c.position.y) / 420));
+    ctx.save();
+    ctx.globalAlpha = 0.20 * (1 - fall * 0.65);
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(c.position.x, gy + 3, w * (0.5 + fall * 0.35), 5, 0, 0, 6.2832);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.translate(c.position.x, c.position.y);
+  ctx.rotate(c.angle);
+
+  /* Booms and rotors. */
+  ctx.strokeStyle = c._alive ? '#5a6a80' : '#45454e'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.42, -h * 0.18); ctx.lineTo(-w * 0.5, -h * 0.62);
+  ctx.moveTo(w * 0.42, -h * 0.18); ctx.lineTo(w * 0.5, -h * 0.62);
+  ctx.stroke();
+  if (c._alive){
+    c._rotor += 0.9;
+    ctx.strokeStyle = 'rgba(143,216,232,0.75)'; ctx.lineWidth = 2.6;
+    for (const bx of [-w * 0.5, w * 0.5]){
+      const sp = Math.abs(Math.cos(c._rotor + (bx < 0 ? 0 : 1.1))) * 0.5 + 0.5;
+      ctx.beginPath(); ctx.ellipse(bx, -h * 0.66, w * 0.24 * sp, 2.4, 0, 0, 6.2832); ctx.stroke();
+    }
+  } else {
+    ctx.strokeStyle = '#45454e'; ctx.lineWidth = 2.4;   // bent, stopped
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.72, -h * 0.6); ctx.lineTo(-w * 0.3, -h * 0.7);
+    ctx.moveTo(w * 0.3, -h * 0.62); ctx.lineTo(w * 0.7, -h * 0.5);
+    ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
+
+  /* Body and the lens slung under it. */
+  ctx.fillStyle = c._alive ? '#48566b' : '#45454e';
+  roundRect(-w / 2, -h / 2, w, h, 7); ctx.fill();
+  ctx.strokeStyle = c._alive ? '#2b3542' : '#2c2c33'; ctx.lineWidth = 2.4;
+  roundRect(-w / 2, -h / 2, w, h, 7); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(-w / 2 + 4, -h / 2 + 3, w - 8, 4);
+
+  ctx.fillStyle = c._alive ? '#101820' : '#1a1a1e';
+  ctx.beginPath(); ctx.arc(0, h * 0.44, 8, 0, 6.2832); ctx.fill();
+  if (c._blinded){
+    ctx.fillStyle = '#ff44a0';
+    ctx.beginPath(); ctx.arc(0, h * 0.44, 11, 0, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.arc(9, h * 0.2, 6, 0, 6.2832); ctx.fill();
+  } else {
+    ctx.strokeStyle = c._alive ? '#8fd8e8' : '#55555e'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, h * 0.44, 8, 0, 6.2832); ctx.stroke();
+  }
+
+  if (c._alive){
+    const pulse = 0.55 + 0.45 * Math.sin(c._phase * 3);
+    ctx.fillStyle = '#ff3b52'; ctx.shadowColor = '#ff3b52'; ctx.shadowBlur = 9 * pulse;
+    ctx.beginPath(); ctx.arc(w / 2 - 7, -h / 2 + 6, 3, 0, 6.2832); ctx.fill();
+    ctx.shadowBlur = 0;
+  } else {
+    ctx.fillStyle = '#2a2a30';
+    ctx.beginPath(); ctx.arc(w / 2 - 7, -h / 2 + 6, 3, 0, 6.2832); ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawCam(c){
+  if (c._flying) return drawDrone(c);
   ctx.save();
   ctx.translate(c.position.x, c.position.y);
   ctx.rotate(c.angle);
@@ -1837,6 +2268,20 @@ function drawCam(c){
   if (c._alive){
     ctx.fillStyle = 'rgba(143,216,232,0.55)';
     ctx.beginPath(); ctx.arc(-w / 2 - 1, -3, 2.6, 0, 6.2832); ctx.fill();
+  } else if (c._fried){
+    /* Fried, not smashed and not painted: the glass is perfect and there is
+       nothing behind it. A dark lens with a dead scorch ring, so all three ways
+       of losing a camera stay tellable apart at a glance. */
+    ctx.fillStyle = '#14161a';
+    ctx.beginPath(); ctx.arc(-w / 2 + 1, 0, h * 0.42, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = '#6b5a4a'; ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.arc(-w / 2 + 1, 0, h * 0.46, 0, 6.2832); ctx.stroke();
+    ctx.strokeStyle = 'rgba(180,150,120,0.5)'; ctx.lineWidth = 1.4;
+    for (let i = 0; i < 5; i++){
+      const a = i * 1.25;
+      ctx.beginPath(); ctx.moveTo(-w / 2 + 1, 0);
+      ctx.lineTo(-w / 2 + 1 + Math.cos(a) * h * 0.6, Math.sin(a) * h * 0.6); ctx.stroke();
+    }
   } else if (c._blinded){
     /* Painted over, not smashed. A blob across the glass, still gently sweeping
        an empty street — funnier and more legible than a cracked lens, and it
@@ -1969,6 +2414,24 @@ function drawTrail(pts, colour){
   if (!pts || pts.length < 2) return;
   ctx.save(); ctx.fillStyle = colour;
   for (const p of pts){ ctx.beginPath(); ctx.arc(p.x, p.y, 2.6, 0, 6.2832); ctx.fill(); }
+  ctx.restore();
+}
+
+/* The pulse. It expands to exactly `splashR` and stops there, so the ring is not
+   decoration — it is a truthful drawing of the tool's reach, and a player who
+   watches one learns how far the next one goes. */
+function drawRings(){
+  if (!S.rings.length) return;
+  ctx.save();
+  for (const r of S.rings){
+    const t = r.life / 420;
+    ctx.globalAlpha = Math.max(0, 1 - t) * 0.9;
+    ctx.strokeStyle = '#6fe3d8'; ctx.lineWidth = 5 * (1 - t) + 1.5;
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, 6.2832); ctx.stroke();
+    ctx.globalAlpha = Math.max(0, 1 - t) * 0.22;
+    ctx.fillStyle = '#6fe3d8';
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, 6.2832); ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -2182,13 +2645,23 @@ function showIntro(rebelId, levelIndex){
   introNext = levelIndex;
   $('introName').textContent = r.name.split(' ')[0].toUpperCase() + ' HAS JOINED THE RESISTANCE';
   $('introTool').textContent = 'NEW TOOL: ' + TOOLS[r.tool].name.toUpperCase();
+  $('introTool').style.color = TOOLS[r.tool].pip;   // the tool's own colour, not Sofia's
   const cs = document.querySelectorAll('#intro .pc');
-  for (let i = 0; i < cs.length; i++) drawPanel(cs[i].getContext('2d'), i);
+  const caps = INTRO_CAPS[rebelId] || INTRO_CAPS.sofia;
+  const capEls = document.querySelectorAll('#intro .cap');
+  for (let i = 0; i < capEls.length; i++) capEls[i].textContent = caps[i];
+  for (let i = 0; i < cs.length; i++) drawPanel(cs[i].getContext('2d'), i, rebelId);
   Save.data.met[rebelId] = 1; Save.flush();
   show('intro');
 }
 
-function drawPanel(g, n){
+const INTRO_CAPS = {
+  sofia: ['A mast over a quiet street.', 'It swivels to follow her.', 'She stops. Shakes a can.', 'Entirely pink.'],
+  tuan:  ['A drone over the courtyard.', 'Tuan, on the step, with a bag of parts.', 'A jar. A lid. Two wires.', 'Upside down. Sparking.'],
+};
+
+function drawPanel(g, n, rebelId){
+  if (rebelId === 'tuan') return drawPanelTuan(g, n);
   const W = 260, H = 200;
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.fillStyle = ['#ffd08a', '#ffbe86', '#ffab86', '#ff8fa8'][n];
@@ -2239,6 +2712,76 @@ function drawPanel(g, n){
         g.beginPath(); g.moveTo(sx + 22, 74);
         g.lineTo(sx + 22 + Math.cos(a) * 14, 74 + Math.sin(a) * 14 - 6); g.stroke();
       }
+    }
+  }
+}
+
+/* Tuan's. Same four beats as Sofia's — a machine watching, the person noticing,
+   the improvised answer, the hard cut — because the beats are the format. */
+function drawPanelTuan(g, n){
+  const W = 260, H = 200;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = ['#dff2f6', '#cfe9f0', '#bfe0ea', '#a9d6e4'][n];
+  g.fillRect(0, 0, W, H);
+
+  /* Courtyard: glass slabs behind, a step to sit on. */
+  g.fillStyle = '#8fbccb';
+  for (let x = 6; x < W; x += 52) g.fillRect(x, 34, 34, 108);
+  g.fillStyle = 'rgba(255,255,255,0.4)';
+  for (let x = 6; x < W; x += 52) for (let b = 0; b < 4; b++) g.fillRect(x + 3, 42 + b * 26, 28, 10);
+  g.fillStyle = '#5f93ac'; g.fillRect(0, 142, W, 58);
+  g.fillStyle = '#4d7d94'; g.fillRect(0, 142, W, 5);
+  g.fillStyle = '#71a3ba'; g.fillRect(0, 156, 92, 44);        // the step
+
+  /* The drone: hovering, then on its back. */
+  if (n < 3){
+    const dx = [176, 168, 172][n], dy = [56, 62, 58][n];
+    g.strokeStyle = '#3f5364'; g.lineWidth = 3; g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(dx - 17, dy - 3); g.lineTo(dx - 21, dy - 15);
+    g.moveTo(dx + 17, dy - 3); g.lineTo(dx + 21, dy - 15); g.stroke();
+    g.strokeStyle = 'rgba(90,160,190,0.8)'; g.lineWidth = 2.4;
+    for (const bx of [dx - 21, dx + 21]){ g.beginPath(); g.ellipse(bx, dy - 16, 11, 2.2, 0, 0, 6.2832); g.stroke(); }
+    g.lineCap = 'butt';
+    g.fillStyle = '#48566b'; g.fillRect(dx - 20, dy - 6, 40, 17);
+    g.fillStyle = '#101820'; g.beginPath(); g.arc(dx, dy + 13, 6, 0, 6.2832); g.fill();
+    g.fillStyle = '#ff3b52'; g.beginPath(); g.arc(dx + 14, dy - 2, 3, 0, 6.2832); g.fill();
+    if (n === 1){                                             // its beam, finding him
+      g.fillStyle = 'rgba(255,59,82,0.13)';
+      g.beginPath(); g.moveTo(dx, dy + 14); g.lineTo(dx - 96, 150); g.lineTo(dx - 40, 150); g.closePath(); g.fill();
+    }
+  } else {
+    g.save(); g.translate(150, 168); g.rotate(2.7);
+    g.fillStyle = '#45454e'; g.fillRect(-20, -8, 40, 17);
+    g.strokeStyle = '#45454e'; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(-17, -6); g.lineTo(-26, -18); g.moveTo(17, -6); g.lineTo(28, -14); g.stroke();
+    g.restore();
+    g.strokeStyle = '#6fe3d8'; g.lineWidth = 2.2;             // still sparking
+    for (const a of [-0.9, -0.2, 0.6]){
+      g.beginPath(); g.moveTo(150, 158);
+      g.lineTo(150 + Math.cos(a) * 22, 158 + Math.sin(a) * 22 - 8); g.stroke();
+    }
+    g.fillStyle = '#6fe3d8';
+    g.beginPath(); g.arc(150, 158, 26, 0, 6.2832); g.globalAlpha = 0.16; g.fill(); g.globalAlpha = 1;
+  }
+
+  /* Tuan. Silhouette rule: the overloaded backpack. */
+  if (n < 3){
+    const sx = 52;
+    g.fillStyle = '#221d2e';
+    g.fillRect(sx - 8, 118, 17, 34);                          // torso
+    g.beginPath(); g.arc(sx, 110, 10, 0, 6.2832); g.fill();   // head
+    g.fillRect(sx - 6, 152, 20, 7);                           // legs, sitting
+    g.fillStyle = '#3f5364'; g.fillRect(sx - 24, 120, 15, 24);// backpack
+    g.fillStyle = '#6fe3d8'; g.fillRect(sx - 22, 116, 4, 6); g.fillRect(sx - 15, 114, 4, 8);
+    if (n === 2){                                             // the jar, and two wires
+      g.fillStyle = '#cfe9f0'; g.fillRect(sx + 12, 116, 15, 19);
+      g.strokeStyle = '#221d2e'; g.lineWidth = 2; g.strokeRect(sx + 12, 116, 15, 19);
+      g.fillStyle = '#6fe3d8'; g.fillRect(sx + 14, 120, 11, 11);
+      g.strokeStyle = '#c0392b'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(sx + 20, 116); g.quadraticCurveTo(sx + 30, 104, sx + 24, 96); g.stroke();
+      g.strokeStyle = '#2e86c1';
+      g.beginPath(); g.moveTo(sx + 24, 116); g.quadraticCurveTo(sx + 36, 108, sx + 33, 98); g.stroke();
     }
   }
 }
@@ -2321,13 +2864,13 @@ window.BS = {
   settleTest(){
     const out = [];
     for (let i = 0; i < LEVELS.length; i++){
-      const want = LEVELS[i].parts.filter(p => p[0] !== 'sign' && p[0] !== 'cam' && p[0] !== 'hcam').length;
+      const want = LEVELS[i].parts.filter(p => !['sign','cam','hcam','drone'].includes(p[0])).length;
       S = headlessLevel(i);
       for (let k = 0; k < 120; k++) step(CONFIG.stepMs);        // 2 s, well past the grace
       const got = S.parts.filter(p => !p._sign).length;
       let maxV = 0;
       for (const b of Composite.allBodies(world)){
-        if (b.isStatic || b.isSleeping) continue;
+        if (b.isStatic || b.isSleeping || (b._flying && b._alive)) continue;
         maxV = Math.max(maxV, Math.hypot(b.velocity.x, b.velocity.y));
       }
       out.push({ level: LEVELS[i].id, parts: want + '→' + got,

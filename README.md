@@ -68,8 +68,8 @@ await BS.all()
   This is the test that found level 6 unwinnable: 150 scripted shots, zero kills.
 - `playtest()` — replays each level with a **calibrated** human aim error and
   reports the clear rate and three-star rate. This is how "beatable but not too
-  easy" stops being an opinion. Currently 80% mean clear, 60% mean three-star,
-  nothing below the floor. Read GDD §8.6 before trusting a number from it — the
+  easy" stops being an opinion. Currently 82% mean clear, 59% mean three-star,
+  nothing below the floor and nothing above the ceiling. Read GDD §8.6 before trusting a number from it — the
   bot cannot re-plan, so every figure is a lower bound.
 
 `BS.headless(n)`, `BS.aim(deg, pull)`, `BS.fire(vx, vy, steps)` and `BS.tick(n)`
@@ -77,17 +77,19 @@ drive the simulation directly, which is how you pose a collapse and look at it.
 
 ## Status
 
-**Two regions, twenty levels, two rebels, two tools.**
+**Three regions, thirty levels, three rebels, three tools.**
 
 - **Region 1 · Porto Vela** — Nico Aldama, The Chunk. Wood, glass, concrete, steel.
 - **Region 2 · Kestrel Row** — Sofia Brankov, the Paint Bomb. Armoured housings that
   impact cannot touch, and a tool that wins by blinding rather than breaking.
+- **Region 3 · New Meridian** — Tuan Vo, the EMP Jar. A pulse that reaches through solid
+  material, and drones that hold station until they stop being powered.
 
-Region 2 opens at 18 stars (60% of Region 1's), per GDD §9.2. To look at it
-immediately, in the console:
+Regions open on total stars, per GDD §9.2 — Region 2 at 18, Region 3 at 36. To open
+everything immediately, in the console:
 
 ```js
-BS.LEVELS.slice(0,10).forEach(l=>BS.Save.data.stars[l.id]=2); BS.Save.data.unlocked=11; BS.Save.flush(); location.reload()
+BS.LEVELS.forEach(l=>BS.Save.data.stars[l.id]=2); BS.Save.data.unlocked=30; BS.Save.flush(); location.reload()
 ```
 
 ## Credits

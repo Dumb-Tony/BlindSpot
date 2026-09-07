@@ -196,7 +196,7 @@ Show a stranger one use of the tool. If they cannot then predict its second use,
 |---|---|---|---|---|
 | **The Chunk** | Nico | **[MVP]** | A heavy rock that flies in an arc and breaks what it hits. | No |
 | **Paint Bomb** | Sofia | **[BUILT]** | Bursts into paint. Any lens it can see is finished. | No |
-| **EMP Jar** | Tuan | [V1] | Pops once and kills every powered device in a small radius. | No |
+| **EMP Jar** | Tuan | **[BUILT]** | Pops once. Everything powered nearby stops being powered. | No |
 | **Grapple Winch** | Marisol | [V1] | Sticks to what it hits, then yanks it toward you. | Yes — one click |
 | **The Breacher** | Baz | [V1] | Very heavy, flies flat, punches through walls instead of bouncing off. | No |
 | **Signal Disruptor** | Wren | [V1] | Turns one camera against its own network, and it takes its neighbours down with it. | No |
@@ -537,6 +537,46 @@ puzzle, never a combat boss. Region finales listed in §12.
 
 ---
 
+### 8.3c Difficulty curve, Region 3 **[BUILT]**
+
+New Meridian. Tuan joins; the EMP Jar arrives; half the cameras are in the air.
+
+The region turns on **one difference between the two splash tools**: paint needs a clear
+line to a lens and the EMP does not, and in exchange the EMP's reach is smaller (132 px
+against paint's 150). Paint answers a spread-out cluster in the open; the EMP answers
+anything behind cover. Neither replaces the other, and no level should be winnable by
+reaching for whichever came last.
+
+| # | Name | Teaches | Par | Supply |
+|---|---|---|---|---|
+| 1 | **Ampere** | A wall is not cover — the pulse goes through it. | 1 | 3 EMP |
+| 2 | **Drone Delivery** | Drones. They fly, and not for long. | 2 | 3 chunk, EMP |
+| 3 | **Blind Corner** | Paint needs to see a lens; this one has nothing to see it with. | 2 | paint, 2 EMP |
+| 4 | **Falling Objects** | Aim at the thing *above* the camera. | 2 | EMP, chunk, EMP, chunk |
+| 5 | **Mixed Signals** | Three targets, three different answers. | 3 | 5, mixed |
+| 6 | **Out of Range** | The pulse is smaller than the paint. | 2 | 2 EMP, paint |
+| 7 | **The Server Shed** | Through the roof, or take the roof off first. | 2 | EMP, chunk, paint, EMP |
+| 8 | **Skyline** | A dropped drone is a falling object. | 2 | EMP, chunk, EMP, chunk |
+| 9 | **Redundancy** | Five targets, five tools, two clusters. | 2 | 5, mixed |
+| 10 | **The Hive** | Finale. A docking tower, two housings, two airborne. | 4 | 7, EMP-led |
+
+**⚠ THE FUSE RADIUS, NOT THE SPLASH RADIUS, DECIDES WHETHER TWO TARGETS CAN SHARE A
+BURST.** A splash tool detonates on contact or within its fuse (62 px), so with open air
+between two targets the burst happens where the fuse trips — about 62 px out from the
+first one reached — and the second is then that much further away than it looks. Two
+drones 200 px apart could never share a 132 px pulse, and *The Hive* was unwinnable at its
+stated par because of it. Targets standing on a SURFACE do not have this problem: the jar
+strikes the deck between them and bursts where it was aimed. **Airborne pairs must be
+~110 px apart to share; mounted pairs can be ~200.**
+
+**Drones** (`drone`) hold station while powered and are ordinary falling bodies the moment
+they are not. Crucially, **any impact above a small threshold drops one whether or not it
+kills it** — a clipped rotor is enough. Without that rule a powered drone is kinematically
+held and therefore immovable, so one falling drone could not knock another out of the air,
+and the region's signature chain reaction would silently not exist.
+
+---
+
 ## 8.6 DIFFICULTY, MEASURED
 
 "Easily playable and beatable, but not too easy" is a claim, and a claim needs a number.
@@ -579,8 +619,14 @@ the band — not as an absolute.
 | Mean three-star rate | **60%** |
 | Casual-player clear rate | 69% |
 | Levels below the floor | none |
-| Hardest | *The Billboard* (R2 finale) — 50% clear, 8% three-star |
-| Easiest | *Wet Paint*, *Up There* — 100% clear |
+| Hardest | *The Hive* (R3 finale) — 60% clear, 47% three-star |
+| Easiest | *Drone Delivery* — 97% clear |
+
+**⚠ A par must be reachable RELIABLY, not just reachable.** *The Hive* has a shot that takes
+all six targets at once — 36°, full pull — and the search rejects it, correctly: it survives
+almost no aim error. Par is set by the route a player can repeat (four pulses), which leaves
+the one-shot clear as something to discover. That is §8.2's three solutions in one level:
+obvious six, efficient four, unexpected one.
 
 **⚠ A solver optimises what you ask for, and it will not be what you meant.** Three
 separate times the search returned solutions no player could use:
@@ -897,7 +943,11 @@ networked cameras, music, a level editor, achievements, mobile support.
 
 Kestrel Row, Sofia Brankov and the Paint Bomb (§8.3b), armoured housings, blinding as a
 second way to lose a camera, region gating on stars, Sofia's four-panel joining sequence,
-and a second region palette. Twenty levels, two tools, two rebels.
+and a second region palette.
+
+Then New Meridian, Tuan Vo and the EMP Jar (§8.3c): a splash that reaches through solid
+material, drones that hold station until they lose power, and frying as a third way to
+lose a camera. **Thirty levels, three regions, three rebels, three tools.**
 
 ---
 
