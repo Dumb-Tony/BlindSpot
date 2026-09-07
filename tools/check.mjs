@@ -60,24 +60,54 @@ section('B. Level content');
 const block = html.match(/==== LEVELS:BEGIN ====[\s\S]*?\n([\s\S]*?)\/\* ==== LEVELS:END ====/);
 ok(!!block, 'LEVELS block found between its markers');
 const LEVELS = new Function(block[1] + '\nreturn LEVELS;')();
-ok(LEVELS.length === 10, 'region 1 has ten levels', '(' + LEVELS.length + ')');
+const REGION_IDS = ['r1', 'r2'];
+ok(LEVELS.length === 20, 'two regions of ten levels', '(' + LEVELS.length + ')');
+for (const r of REGION_IDS)
+  ok(LEVELS.filter(L => L.id.startsWith(r)).length === 10, r + ' has ten levels');
 
-const KINDS = new Set(['wood', 'glass', 'concrete', 'steel', 'barrel', 'sign', 'cam']);
-const CAM_H = 26;
-const GROUND_Y = 720, LEVEL_W = 1620, LAUNCH_X = 170;
+const KINDS = new Set(['wood', 'glass', 'concrete', 'steel', 'barrel', 'sign', 'cam', 'hcam']);
+const TOOL_IDS = new Set(['chunk', 'paint']);
+
+/* Read the tuning out of the page rather than restating it here. The reachability
+   rule below is only as good as its idea of how hard the sling throws, and a
+   second copy of that number is a copy that goes stale silently. */
+const cfgBlock = html.match(/==== CONFIG:BEGIN ====[\s\S]*?\n([\s\S]*?)\/\* ==== CONFIG:END ====/);
+ok(!!cfgBlock, 'CONFIG block found between its markers');
+const CONFIG = new Function(cfgBlock[1] + '\nreturn CONFIG;')();
+const CAM_H = CONFIG.camH;
+const GROUND_Y = CONFIG.groundY, LEVEL_W = CONFIG.levelW, LAUNCH_X = CONFIG.launchX;
+
+/* A level's tools are a count (that many Chunks) or an explicit sequence. */
+const supplyOf = L => (typeof L.tools === 'number' ? new Array(L.tools).fill('chunk') : L.tools);
 
 const ids = new Set();
 for (const L of LEVELS) {
   const tag = L.id;
+  const supply = supplyOf(L), n = supply.length;
   ok(!ids.has(tag), tag + ' · id is unique'); ids.add(tag);
+  ok(REGION_IDS.includes(tag.slice(0, 2)), tag + ' · id names a real region');
   ok(typeof L.name === 'string' && L.name.length > 0, tag + ' · has a name');
-  ok(L.par >= 1 && L.par <= L.tools, tag + ' · par ' + L.par + ' is inside the tool budget of ' + L.tools);
-  ok(L.tools >= L.par + 1, tag + ' · budget leaves room to fail down to one star', '(par ' + L.par + ', ' + L.tools + ' tools)');
+  ok(supply.every(t => TOOL_IDS.has(t)), tag + ' · every tool in the supply exists');
+  ok(L.par >= 1 && L.par <= n, tag + ' · par ' + L.par + ' is inside the tool budget of ' + n);
+  ok(n >= L.par + 1, tag + ' · budget leaves room to fail down to one star', '(par ' + L.par + ', ' + n + ' tools)');
   ok(typeof L.teach === 'string' && L.teach.length > 10, tag + ' · says what it teaches');
 
-  const cams = L.parts.filter(p => p[0] === 'cam');
+  const cams = L.parts.filter(p => p[0] === 'cam' || p[0] === 'hcam');
+  const armoured = L.parts.filter(p => p[0] === 'hcam');
   ok(cams.length >= 1, tag + ' · has at least one camera', '(' + cams.length + ')');
-  ok(cams.length <= L.tools, tag + ' · cameras (' + cams.length + ') do not outnumber tools (' + L.tools + ')');
+  /* One tool per camera is only the right arithmetic while every tool kills
+     exactly one thing. A paint bomb takes a whole cluster, so a level with paint
+     in it is ALLOWED to field more cameras than tools — that is the point of the
+     tool, and the shot sweep is what proves the level is actually winnable. */
+  ok(cams.length <= n || supply.includes('paint'),
+     tag + ' · cameras (' + cams.length + ') vs tools (' + n + ') is winnable arithmetic');
+
+  /* An armoured housing is immune to impact by design, so a level that contains
+     one and supplies no paint is unwinnable by construction — the exact class of
+     bug that shipped in r1-06 and took a scripted sweep to notice. */
+  if (armoured.length)
+    ok(supply.includes('paint'), tag + ' · has armoured cameras AND paint to deal with them',
+       '(' + armoured.length + ' armoured)');
 
   for (const p of L.parts) {
     const k = p[0];
@@ -85,7 +115,7 @@ for (const L of LEVELS) {
     const [x, y] = [p[1], p[2]];
     if (!(x > 0 && x < LEVEL_W)) ok(false, tag + ' · part ' + k + ' x=' + x + ' outside level width');
     if (!(y > -200 && y <= GROUND_Y)) ok(false, tag + ' · part ' + k + ' y=' + y + ' outside level height');
-    if (k === 'cam' && y + CAM_H / 2 > GROUND_Y + 1) ok(false, tag + ' · camera at y=' + y + ' is below ground');
+    if ((k === 'cam' || k === 'hcam') && y + CAM_H / 2 > GROUND_Y + 1) ok(false, tag + ' · camera at y=' + y + ' is below ground');
     if (k === 'sign' && typeof p[3] !== 'string') ok(false, tag + ' · sign has no text');
     if ((k === 'wood' || k === 'glass' || k === 'concrete' || k === 'steel') && !(p[3] > 0 && p[4] > 0))
       ok(false, tag + ' · ' + k + ' has no size');
@@ -97,16 +127,23 @@ for (const L of LEVELS) {
   ok(tooClose.length === 0, tag + ' · nothing built over the launch platform', tooClose.length ? '(' + tooClose.length + ')' : '');
 }
 
-/* Every camera must be reachable: a rock leaving the sling at max power travels
-   this far on a 45° arc, so a target beyond it is unhittable by construction. */
+/* Every camera must be reachable, and HEIGHT costs speed that a flat-range rule
+   cannot see: a target 300 px up is far more expensive than one the same
+   distance away on the ground. The minimum launch speed to pass through a point
+   is v² = g·(h + √(d² + h²)) — the classic result — so this compares the speed
+   a camera actually demands against the speed the sling can actually produce,
+   and leaves 5% of margin so nothing sits exactly on the edge of possible. */
 section('C. Reachability');
-const G_STEP = 1.0 * 0.001 * (1000 / 60) ** 2;
-const vMax = 132 * 0.155;
-const range = (vMax * vMax) / G_STEP;           // flat-ground range at 45°
+const G_STEP = CONFIG.gravity * 0.001 * (1000 / 60) ** 2;
+const vMax = CONFIG.maxPull * CONFIG.power;
+const LAUNCH_Y = CONFIG.launchY;
 for (const L of LEVELS) {
-  for (const p of L.parts.filter(q => q[0] === 'cam')) {
-    ok(p[1] - LAUNCH_X < range * 0.85, L.id + ' · camera at x=' + p[1] + ' is inside comfortable range',
-       '(' + Math.round(p[1] - LAUNCH_X) + ' of ' + Math.round(range * 0.85) + ' px)');
+  for (const p of L.parts.filter(q => q[0] === 'cam' || q[0] === 'hcam')) {
+    const d = p[1] - LAUNCH_X, h = LAUNCH_Y - p[2];
+    const vNeed = Math.sqrt(G_STEP * (h + Math.hypot(d, h)));
+    const frac = vNeed / vMax;
+    ok(frac <= 0.95, L.id + ' · camera at ' + p[1] + ',' + p[2] + ' is reachable',
+       '(needs ' + (frac * 100).toFixed(0) + '% of full power)');
   }
 }
 

@@ -195,7 +195,7 @@ Show a stranger one use of the tool. If they cannot then predict its second use,
 | Tool | Rebel | Phase | One sentence | Second verb? |
 |---|---|---|---|---|
 | **The Chunk** | Nico | **[MVP]** | A heavy rock that flies in an arc and breaks what it hits. | No |
-| **Paint Bomb** | Sofia | [V1] | Bursts into paint that blinds every camera lens it touches. | No |
+| **Paint Bomb** | Sofia | **[BUILT]** | Bursts into paint. Any lens it can see is finished. | No |
 | **EMP Jar** | Tuan | [V1] | Pops once and kills every powered device in a small radius. | No |
 | **Grapple Winch** | Marisol | [V1] | Sticks to what it hits, then yanks it toward you. | Yes — one click |
 | **The Breacher** | Baz | [V1] | Very heavy, flies flat, punches through walls instead of bouncing off. | No |
@@ -450,17 +450,56 @@ Ten levels. Each introduces exactly one idea and then combines it with the last.
 |---|---|---|---|---|
 | 1 | **Say Cheese** | Aiming. One camera on a short post. | 1 | 3 |
 | 2 | **Timber** | Structural weak points — hit the leg, not the camera. | 1 | 3 |
-| 3 | **Double Vision** | Efficiency. Two cameras, one shared structure. | 2 | 3 |
+| 3 | **Double Vision** | Efficiency. Two cameras, one shared structure. | 2 | 4 |
 | 4 | **Behind Glass** | Materials. Glass is free; go through it. | 1 | 3 |
 | 5 | **Domino Effect** | Chain reactions. A row of pillars. | 1 | 3 |
 | 6 | **Hard Hat Area** | Concrete as weight. Drop the lid, don't break it. | 2 | 4 |
-| 7 | **Overwatch** | Steel is a wall — take its legs instead. | 2 | 4 |
+| 7 | **Overwatch** | Steel is a wall — take its legs instead. | 2 | 5 |
 | 8 | **The Barrel Run** | Rolling objects as ammunition. | 1 | 3 |
-| 9 | **Neighbourhood Watch** | Three targets, one budget. | 3 | 5 |
-| 10 | **The Eye of Porto Vela** | Finale. Everything at once, four cameras. | 3 | 6 |
+| 9 | **Neighbourhood Watch** | Three targets, one budget. | 3 | 6 |
+| 10 | **The Eye of Porto Vela** | Finale. Everything at once, four cameras. | 3 | 7 |
+
+**Par and tool count are different dials and must not be confused.** Par sets where the
+third star sits; the tool count sets how much a mistake costs. When a level measures as
+unforgiving, the fix is almost always more tools — that reduces frustration while leaving
+the three-star bar exactly where it was.
 
 **Level 1 must be solvable by a player who drags in roughly the right direction.** It is
 not a puzzle, it is a handshake.
+
+### 8.3b Difficulty curve, Region 2 **[BUILT]**
+
+Kestrel Row. Sofia joins; the Paint Bomb arrives; armoured housings make impact
+genuinely useless on some targets. The region's whole argument is that *surveillance
+does not have to be destroyed to be defeated* — so its levels are about **lines of
+sight** and **clustering**, not about force.
+
+| # | Name | Teaches | Par | Supply |
+|---|---|---|---|---|
+| 1 | **Wet Paint** | Paint breaks nothing and wins anyway. Two exposed lenses, one jar. | 1 | 3 paint |
+| 2 | **The Housing** | Armour. Throw a rock at it once, to be sure. | 2 | chunk, 2 paint |
+| 3 | **Alley Cluster** | Clustering — three lenses, one alley, one jar. | 1 | paint, chunk, paint |
+| 4 | **Line of Sight** | Paint cannot see through glass. Rock first, then paint. | 2 | chunk, 2 paint |
+| 5 | **Rooftop Row** | Right tool, right roof. Mixed armoured and plain. | 3 | chunk, paint, chunk, paint |
+| 6 | **Up There** | Reach. Two lenses close together, a long way up. | 1 | 2 paint, chunk |
+| 7 | **Split Duty** | Budgeting. Two clusters too far apart to share a jar. | 2 | 2 paint, chunk |
+| 8 | **Behind the Billboard** | The Ministry's own advertising blocks its own cameras. | 2 | chunk, 2 paint |
+| 9 | **Scaffold** | Collapse *and* paint, in one level. | 3 | 6, alternating |
+| 10 | **The Billboard** | Finale. Five lenses, two armoured, one enormous screen. | 3 | 8, paint-first |
+
+**⚠ The supply's ORDER sets the floor on the shot count.** Both of this region's
+misses in testing were this mistake, not a physics problem: *Up There* asked for par 1
+while handing the player a rock to throw first, and *The Billboard* put its two paint
+bombs at positions 2 and 4, which made the cheapest possible clear four shots against a
+par of three. When a par looks unreachable, count the queue before touching the level.
+
+**Armoured housings** (`hcam`) carry an impact floor above any impulse a thrown rock
+can generate at these ranges, so impact does not work on them at all. That is the
+mechanic, not a difficulty tax — and it makes a level with an armoured camera and no
+paint in its supply *unwinnable by construction*, which `tools/check.mjs` now refuses.
+
+**The supply is an ordered queue, not a pile.** Handing the player a rock first in
+*The Housing* is the level design: it teaches that the rock is not enough.
 
 ### 8.4 Authoring format
 
@@ -495,6 +534,68 @@ Part kinds: `wood` `glass` `concrete` `steel` (`x,y,w,h,angleDeg?`) ·
 
 Each region: 10–14 levels, ending in an oversized **finale installation** — a destruction
 puzzle, never a combat boss. Region finales listed in §12.
+
+---
+
+## 8.6 DIFFICULTY, MEASURED
+
+"Easily playable and beatable, but not too easy" is a claim, and a claim needs a number.
+`BS.playtest()` replays each level's known-good shot script with a **human-sized error**
+on it and reports how often that still wins.
+
+**The band**
+
+| | Meaning | Threshold |
+|---|---|---|
+| `clear` | a careful player finishes the level | **≥ 40%** (finales sit near this) |
+| `threeStar` | …and does it at par | **≤ 92%**, except tutorial levels |
+
+**Calibration matters more than the band.** The aim preview is exact and shows the whole
+flight to the ground, so the player's error is mouse precision, not prediction. Measured
+landing scatter at ~1000 px of range against a 38 px camera:
+
+| Aim error | Landing scatter |
+|---|---|
+| 1.0° / 1.5% pull — *careful* | 43 px |
+| 2.0° / 3% pull — *casual* | 85 px |
+| 3.5° / 6% pull | 156 px |
+
+The bot was first written at 3.5°/6%, which models somebody flicking the mouse without
+looking at the arc. Judged against that, almost every level in the game reads as
+punishing — and **tuning to it would have made the whole game easier to satisfy an
+instrument that aims badly.** Judge on *careful*; use *casual* as a robustness check.
+
+**Measure the instrument, and state its limits.** The bot cannot re-plan. It works
+through its target list and retries what it missed, but it never invents a new shot, so
+every clear rate is a **lower bound** and the star mix is pessimistic in the same
+direction. It is for comparing levels against each other and for catching one far outside
+the band — not as an absolute.
+
+**Where the build stands** (30 trials/level, careful player):
+
+| | Value |
+|---|---|
+| Mean clear rate | **80%** |
+| Mean three-star rate | **60%** |
+| Casual-player clear rate | 69% |
+| Levels below the floor | none |
+| Hardest | *The Billboard* (R2 finale) — 50% clear, 8% three-star |
+| Easiest | *Wet Paint*, *Up There* — 100% clear |
+
+**⚠ A solver optimises what you ask for, and it will not be what you meant.** Three
+separate times the search returned solutions no player could use:
+
+1. It stopped at the **first** shot that cleared the level, which was always the steepest
+   angle at nearly full power — the most fragile solution available.
+2. Told to prefer low power instead, it found **minimum-power trick shots** that were
+   just as precise. *Gentle is not the same as forgiving.*
+3. Scored on displacement, it chased a **rolling barrel** across the level and reported
+   levels unsolvable with a good route one rock away.
+
+It now scores the whole sweep, then re-fires the top ten candidates with a hand's worth
+of error and keeps the one that still works most often. Selecting for the property you
+actually want — repeatability — lifted the mean clear rate from 61% to 80% without
+changing a single level.
 
 ---
 
@@ -790,7 +891,13 @@ The vertical slice. Its entire job is to answer one question:
 - screen shake, hit-stop, dust, trails
 
 **Explicitly NOT in the slice:** other rebels, other tools, other regions, drones,
-networked cameras, comic intros, music, a level editor, achievements, mobile support.
+networked cameras, music, a level editor, achievements, mobile support.
+
+### 18.1 Shipped since — Region 2 **[BUILT]**
+
+Kestrel Row, Sofia Brankov and the Paint Bomb (§8.3b), armoured housings, blinding as a
+second way to lose a camera, region gating on stars, Sofia's four-panel joining sequence,
+and a second region palette. Twenty levels, two tools, two rebels.
 
 ---
 

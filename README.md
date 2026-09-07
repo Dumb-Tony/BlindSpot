@@ -63,19 +63,32 @@ await BS.all()
 - `previewTest()` — the dotted aim arc *is* the flight path. Currently 0.000 px
   of error over 40 samples.
 - `solveTest()` — sweeps angles and powers to find the fewest shots that clear
-  each level. A par nobody has hit is a guess. This is the test that found level
-  6 unwinnable: 150 scripted shots, zero kills.
+  each level, then re-fires the best candidates with a hand's worth of error and
+  keeps the one that still works most often. A par nobody has hit is a guess.
+  This is the test that found level 6 unwinnable: 150 scripted shots, zero kills.
+- `playtest()` — replays each level with a **calibrated** human aim error and
+  reports the clear rate and three-star rate. This is how "beatable but not too
+  easy" stops being an opinion. Currently 80% mean clear, 60% mean three-star,
+  nothing below the floor. Read GDD §8.6 before trusting a number from it — the
+  bot cannot re-plan, so every figure is a lower bound.
 
 `BS.headless(n)`, `BS.aim(deg, pull)`, `BS.fire(vx, vy, steps)` and `BS.tick(n)`
 drive the simulation directly, which is how you pose a collapse and look at it.
 
 ## Status
 
-Milestone 1 — the vertical slice. Region 1 (Porto Vela), one rebel (Nico), one tool
-(The Chunk), ten levels, four materials, stars, save, sound.
+**Two regions, twenty levels, two rebels, two tools.**
 
-Its whole job is to answer one question: **is knocking these surveillance structures
-apart fun?**
+- **Region 1 · Porto Vela** — Nico Aldama, The Chunk. Wood, glass, concrete, steel.
+- **Region 2 · Kestrel Row** — Sofia Brankov, the Paint Bomb. Armoured housings that
+  impact cannot touch, and a tool that wins by blinding rather than breaking.
+
+Region 2 opens at 18 stars (60% of Region 1's), per GDD §9.2. To look at it
+immediately, in the console:
+
+```js
+BS.LEVELS.slice(0,10).forEach(l=>BS.Save.data.stars[l.id]=2); BS.Save.data.unlocked=11; BS.Save.flush(); location.reload()
+```
 
 ## Credits
 

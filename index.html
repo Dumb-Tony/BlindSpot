@@ -30,7 +30,8 @@
   #tools{display:flex; gap:7px; margin-top:10px; align-items:center}
   .tool{width:22px; height:22px; border-radius:50%; background:#8d7f6d;
         box-shadow:inset -3px -3px 0 rgba(0,0,0,.28), 0 0 0 2px rgba(246,239,226,.22)}
-  .tool.spent{background:transparent; box-shadow:inset 0 0 0 2px rgba(246,239,226,.18); opacity:.5}
+  .tool.spent{background:transparent !important; box-shadow:inset 0 0 0 2px rgba(246,239,226,.18); opacity:.5}
+  .tool.next{box-shadow:inset -3px -3px 0 rgba(0,0,0,.28), 0 0 0 3px var(--accent)}
   #cams{display:flex; gap:7px; align-items:center; justify-content:flex-end; flex-wrap:wrap; max-width:230px}
   .cam{width:20px; height:15px; border-radius:3px; background:var(--cool); position:relative;
        box-shadow:0 0 0 2px rgba(246,239,226,.2)}
@@ -71,7 +72,13 @@
   .h{font-family:var(--head); text-transform:uppercase; letter-spacing:.05em; font-size:clamp(30px,6vw,52px);
      line-height:1}
   .sub{margin-top:8px; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--dim)}
-  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(114px,1fr)); gap:12px; margin-top:26px}
+  /* Five across, so a region reads as two rows of five rather than an endless
+     column. `auto-fit` on a 620px panel collapsed twenty levels into a strip
+     that scrolled off the bottom of the screen. */
+  .grid{display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:11px; margin-top:10px}
+  @media (max-width:560px){ .grid{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  .screen{align-items:flex-start}
+  #title, #won, #lost, #intro{align-items:center}
   .tile{background:#2e2740; border:2px solid rgba(246,239,226,.13); border-radius:12px; padding:13px 9px;
         cursor:pointer; text-align:center; transition:transform .08s, border-color .12s}
   .tile:hover{transform:translateY(-3px); border-color:var(--accent)}
@@ -88,6 +95,27 @@
   .btnRow{margin-top:26px; display:flex; gap:11px; justify-content:center; flex-wrap:wrap}
   .note{margin-top:16px; font-size:12px; color:var(--dim); letter-spacing:.05em}
   .rebel{margin-top:20px; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim)}
+  /* Level select: regions stacked, so a locked one is still something you can see. */
+  .regHead{margin:26px 0 4px; text-align:left}
+  .regHead .rn{font-family:var(--head); font-size:26px; letter-spacing:.05em; text-transform:uppercase}
+  .regHead .rs{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); margin-top:3px}
+  .regHead.shut .rn{color:var(--dim)}
+  .regHead.shut .rs{color:var(--accent)}
+
+  /* Sofia's joining sequence — four panels, a hard cut, gone in seconds. */
+  #intro{background:linear-gradient(165deg,#2a2140,#4b2a52 55%,#7a2f57 100%)}
+  .panel.wide{max-width:1120px}
+  .strip{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px}
+  .pnl{background:#f6efe2; border:3px solid var(--ink); border-radius:6px; overflow:hidden;
+       box-shadow:5px 5px 0 rgba(0,0,0,.35)}
+  .pnl canvas{display:block; width:100%; height:auto}
+  .cap{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink);
+       padding:6px 8px; border-top:2px solid var(--ink); font-weight:700; text-align:left}
+  .joined{margin-top:26px; font-family:var(--head); font-size:clamp(24px,4.4vw,40px);
+          letter-spacing:.05em; text-transform:uppercase; line-height:1.05}
+  .newtool{margin-top:8px; font-weight:800; font-size:13px; letter-spacing:.2em;
+           text-transform:uppercase; color:var(--pink)}
+
   #hint{position:fixed; left:50%; bottom:14%; transform:translateX(-50%); font-family:var(--head);
         font-size:20px; letter-spacing:.14em; text-transform:uppercase; color:var(--paper);
         text-shadow:0 3px 0 rgba(0,0,0,.5); pointer-events:none; opacity:0; transition:opacity .4s}
@@ -136,10 +164,10 @@
   </div>
 
   <div class="screen" id="select">
-    <div class="panel">
-      <div class="h">Porto Vela</div>
-      <div class="sub">Region 1 · Nico Aldama · The Chunk</div>
-      <div class="grid" id="tiles"></div>
+    <div class="panel wide">
+      <div class="h">Level select</div>
+      <div class="sub">Blind Spot · the resistance so far</div>
+      <div id="tiles"></div>
       <div class="btnRow">
         <button class="btn ghost" id="bBack">Back</button>
         <span class="note" id="totalStars"></span>
@@ -158,6 +186,20 @@
         <button class="btn ghost" id="bSel2">Levels</button>
       </div>
       <div class="rebel" id="wonFlavour"></div>
+    </div>
+  </div>
+
+  <div class="screen" id="intro">
+    <div class="panel wide">
+      <div class="strip">
+        <div class="pnl"><canvas class="pc" width="260" height="200"></canvas><div class="cap">A mast over a quiet street.</div></div>
+        <div class="pnl"><canvas class="pc" width="260" height="200"></canvas><div class="cap">It swivels to follow her.</div></div>
+        <div class="pnl"><canvas class="pc" width="260" height="200"></canvas><div class="cap">She stops. Shakes a can.</div></div>
+        <div class="pnl"><canvas class="pc" width="260" height="200"></canvas><div class="cap">Entirely pink.</div></div>
+      </div>
+      <div class="joined" id="introName">SOFIA HAS JOINED THE RESISTANCE</div>
+      <div class="newtool" id="introTool">NEW TOOL: PAINT BOMB</div>
+      <div class="btnRow"><button class="btn y" id="bIntroGo">Let's go</button></div>
     </div>
   </div>
 
@@ -191,6 +233,9 @@ const { Engine, World, Bodies, Body, Composite, Events, Vector } = Matter;
 
 /* ─── 1 · CONFIG ─────────────────────────────────────────────────────────────
    Every tunable number lives here. Nothing below invents a constant. */
+/* tools/check.mjs slices between the markers below and evaluates this object, so
+   its idea of how hard the sling throws cannot drift from the game's. */
+/* ==== CONFIG:BEGIN ==== */
 const CONFIG = Object.freeze({
   stepMs: 1000 / 60,
   maxCatchUpMs: 200,           // tab-suspend clamp — AirportBaggageCrew\src\core\clock.js
@@ -204,7 +249,24 @@ const CONFIG = Object.freeze({
 
   launchX: 170, launchY: 616,
   maxPull: 132,                // px of drag before the sling is maxed out
-  power: 0.155,                // drag px → px/step of launch velocity
+  /* 0.190, up from the 0.155 this shipped with, in two measured steps.
+
+     First: the minimum speed to pass through a point is v² = g·(h + √(d² + h²)),
+     and at 0.155 the top camera of r1-10 needed 102% of full power — it could
+     not be hit directly AT ALL, and the level passed its tests only because the
+     solver clears it by cascade.
+
+     Then: at 0.170 nearly every solution the search found still sat at pull
+     1.00. The natural shot here is a steep lob, because a steep descent lands on
+     the TOPS of things where the cameras are — and a 70° lob at full power
+     reached 969 px against targets at 900–1200. Solutions pinned to the ceiling
+     have no margin above them, so every under-pull falls short and the levels
+     measured far harsher than they play. Max power should be there for the
+     hardest shot in the game, not required for a routine one.
+
+     The material identities survive the change: steel still takes zero damage
+     from a full-power rock, concrete still needs four hits, wood still breaks. */
+  power: 0.190,                // drag px → px/step of launch velocity
   aimGrabR: 240,               // drag starting inside this radius aims; outside it pans
 
   damageScale: 3.0,
@@ -214,7 +276,7 @@ const CONFIG = Object.freeze({
   settleCapMs: 8000,           // a body rolling forever must not hang the level
 
   fragMax: 120, fragLifeMs: 6000, fragFadeMs: 1000,
-  particleMax: 300,
+  particleMax: 300, splatMax: 90,
   shakeMax: 15, shakeDecay: 0.87,
   hitStopMs: 45, hitStopMassMin: 2.5,
 
@@ -226,6 +288,7 @@ const CONFIG = Object.freeze({
   camDetachImpulse: 4,         // knocked off its mounting, but not necessarily dead
   trailStep: 3,
 });
+/* ==== CONFIG:END ==== */
 
 /* Matter integrates gravity as force/mass·δt², so a step adds exactly this many
    px/step of downward velocity. The aim preview uses the same number, which is
@@ -243,20 +306,66 @@ const MATERIALS = {
   barrel:   { hp: 40,  floor: 9,  density: 0.0011, rest: 0.25, fric: 0.35, fill: '#c96a3c', edge: '#8d4322', alpha: 1,    sfx: 'WOOD_BREAK' },
   sign:     { hp: 25,  floor: 5,  density: 0.0008, rest: 0.10, fric: 0.50, fill: '#f6efe2', edge: '#221d2e', alpha: 1,    sfx: 'WOOD_BREAK' },
   cam:      { hp: CONFIG.camHp, floor: CONFIG.camFloor, density: 0.0012, rest: 0.10, fric: 0.60, fill: '#3d4a5c', edge: '#222b38', alpha: 1, sfx: 'CAMERA_DEAD' },
+  /* An armoured housing. Its floor is above any impulse a thrown rock can
+     generate at these ranges, so impact genuinely does not work on it — that is
+     the Region 2 mechanic, not a difficulty tax. The lens is still a lens, and
+     paint does not care how thick the box around it is. */
+  hcam:     { hp: 60, floor: 26, density: 0.0016, rest: 0.05, fric: 0.70, fill: '#5f7186', edge: '#33404f', alpha: 1, sfx: 'CAMERA_DEAD' },
 };
 
+/* Tools. Every one of them flies the same way and is released the same way —
+   R1 says the player has one verb — so a tool is a projectile plus, at most, one
+   thing that happens when it lands. */
 const TOOLS = {
   chunk: {
-    name: 'The Chunk', rebel: 'Nico Aldama',
+    name: 'The Chunk', rebel: 'Nico Aldama', pip: '#8d7f6d',
     blurb: 'A lump of broken pavement. Heavy, dumb, and completely reliable.',
     radius: 15, sides: 7, density: 0.0026, rest: 0.25, fric: 0.55, frictionAir: 0,
+  },
+  /* Sofia's. It does almost no damage and wins levels anyway, which is the whole
+     thesis of the game delivered as a mechanic: surveillance does not have to be
+     destroyed to be defeated. */
+  paint: {
+    name: 'Paint Bomb', rebel: 'Sofia Brankov', pip: '#ff44a0',
+    blurb: 'Bursts into paint. Any lens it can see is finished.',
+    radius: 13, sides: 12, density: 0.0011, rest: 0.05, fric: 0.6, frictionAir: 0,
+    /* `fuseR` is why this is a splash weapon instead of a precision one. Bursting
+       on CONTACT only, the jar had to physically strike a 52 px housing, and
+       striking the post underneath put the post between the burst and the lens —
+       "The Housing" measured a 7% clear rate as a one-camera teaching level.
+       Passing near a lens is now enough, which is what a thrown jar of paint
+       should do and what every level here was designed assuming. */
+    burst: true, splashR: 150, fuseR: 62, noDamage: true,
   },
 };
 
 const REBELS = {
-  nico: { name: 'Nico Aldama', region: 'Porto Vela', tool: 'chunk',
-          why: 'A camera fined his neighbour for sitting on the harbour wall.' },
+  nico:  { name: 'Nico Aldama', region: 'Porto Vela', tool: 'chunk',
+           why: 'A camera fined his neighbour for sitting on the harbour wall.' },
+  sofia: { name: 'Sofia Brankov', region: 'Kestrel Row', tool: 'paint',
+           why: 'She had been painting over cameras by hand for two years and got tired of climbing.' },
 };
+
+/* A level's `tools` is either a COUNT (that many Chunks — every Region 1 level,
+   unchanged) or an explicit sequence. The order is the order they are handed to
+   the player, which is itself level design: giving the rock first teaches that
+   the rock is not enough. */
+function toolList(def){
+  return typeof def.tools === 'number' ? new Array(def.tools).fill('chunk') : def.tools.slice();
+}
+
+/* Regions. `starGate` is 60% of the PREVIOUS region's available stars, per
+   GDD §9.2: a player who is stuck is never blocked from continuing, but a player
+   who rushed is asked to go back and improve two or three levels. */
+const REGIONS = [
+  { id:'r1', name:'Porto Vela', rebel:'nico', tools:'The Chunk', starGate:0,
+    blurb:'A sun-bleached harbour town whose Ministry has just discovered lenses.' },
+  { id:'r2', name:'Kestrel Row', rebel:'sofia', tools:'The Chunk · Paint Bomb', starGate:18,
+    blurb:'Dense blocks, alleys and rooftops. Up here the cameras wear armour.' },
+];
+
+function regionOf(i){ const p = LEVELS[i].id.slice(0, 2); return Math.max(0, REGIONS.findIndex(r => r.id === p)); }
+function levelsIn(r){ return LEVELS.map((l, i) => i).filter(i => regionOf(i) === r); }
 
 /* Flavour printed under the stars. Not gameplay; it is the Ministry losing. */
 const FLAVOUR = [
@@ -272,7 +381,7 @@ const FLAVOUR = [
 
 /* ==== LEVELS:BEGIN ====  (tools/check.mjs slices between these markers) */
 const LEVELS = [
-  { id:'r1-01', name:'Say Cheese', par:1, tools:3,
+  { id:'r1-01', name:'Say Cheese', par:1, tools:3, tutorial:true,
     teach:'Drag back. Let go. That is the whole game.',
     parts:[
       ['wood', 1150, 650, 26, 140],
@@ -280,7 +389,7 @@ const LEVELS = [
       ['sign',  660, 600, 'SMILE. YOUR SAFETY IS BEING RECORDED.'],
     ]},
 
-  { id:'r1-02', name:'Timber', par:1, tools:3,
+  { id:'r1-02', name:'Timber', par:1, tools:3, tutorial:true,
     teach:'Hitting the camera works. Hitting its legs works better.',
     parts:[
       ['wood', 1200, 630, 28, 180],
@@ -290,7 +399,7 @@ const LEVELS = [
       ['sign',  640, 590, 'PRIVACY IS VERY SUSPICIOUS'],
     ]},
 
-  { id:'r1-03', name:'Double Vision', par:2, tools:3,
+  { id:'r1-03', name:'Double Vision', par:2, tools:4,
     teach:'Two cameras. One structure. Do the arithmetic.',
     parts:[
       ['concrete', 1200, 620, 70, 200],
@@ -351,7 +460,7 @@ const LEVELS = [
       ['sign',      640, 600, 'UNOBSERVED AREAS ARE BEING ADDRESSED'],
     ]},
 
-  { id:'r1-07', name:'Overwatch', par:2, tools:4,
+  { id:'r1-07', name:'Overwatch', par:2, tools:5,
     teach:'Steel does not care. Steel is standing on something that does.',
     parts:[
       ['wood',  1080, 615, 30, 210],
@@ -375,7 +484,7 @@ const LEVELS = [
       ['sign',   560, 600, 'CITIZENVISION™ — BECAUSE SOMEONE SHOULD BE WATCHING'],
     ]},
 
-  { id:'r1-09', name:'Neighbourhood Watch', par:3, tools:5,
+  { id:'r1-09', name:'Neighbourhood Watch', par:3, tools:6,
     teach:'Three of them. Five rocks. Two of those rocks are a rounding error.',
     parts:[
       ['wood',     1000, 655, 24, 130],
@@ -390,7 +499,7 @@ const LEVELS = [
       ['sign',      620, 600, '47 CAMERAS SERVING THIS STREET. TARGET: 60.'],
     ]},
 
-  { id:'r1-10', name:'The Eye of Porto Vela', par:3, tools:6,
+  { id:'r1-10', name:'The Eye of Porto Vela', par:3, tools:7,
     teach:'Region finale. Everything Porto Vela taught you, standing in one place.',
     parts:[
       ['concrete', 1250, 690, 240, 60],
@@ -406,6 +515,143 @@ const LEVELS = [
       ['cam',      1290, 235],
       ['barrel',    990, 694, 26],
       ['sign',      620, 560, 'THE EYE OF PORTO VELA — PUBLIC SAFETY OBSERVATION NETWORK'],
+    ]},
+
+  /* ── REGION 2 · KESTREL ROW ─ Sofia Brankov ─ Paint Bomb ──────────────────
+     The region exists to teach one idea: surveillance does not have to be
+     destroyed to be defeated. Armoured housings make impact genuinely useless
+     on some targets, and paint blinds anything whose lens it can SEE — so the
+     levels are about lines of sight and about clustering, not about force. */
+
+  { id:'r2-01', name:'Wet Paint', par:1, tools:['paint','paint','paint'], tutorial:true,
+    teach:'Paint does not break anything. It does not need to.',
+    parts:[
+      ['concrete', 1150, 685, 280, 70],
+      ['cam',      1080, 637],
+      ['cam',      1220, 637],
+      ['sign',      620, 600, 'SMILE. YOUR SAFETY IS BEING RECORDED.'],
+    ]},
+
+  /* The post is STEEL so that the opening rock is a true no-op. As wood it took
+     38 of 45 hp and shoved the post, which MOVED the camera — so the paint shot
+     the player had lined up was aimed at where the target used to be, and the
+     level measured a 10% clear rate. A teaching level whose teaching shot
+     sabotages the answer is not teaching anything. */
+  { id:'r2-02', name:'The Housing', par:2, tools:['chunk','paint','paint'],
+    teach:'Some of them are armoured now. Throw a rock at it once, to be sure.',
+    parts:[
+      ['steel', 1200, 630, 32, 180],
+      ['hcam',  1200, 521],
+      ['sign',   600, 600, 'ALL HOUSINGS IMPACT-CERTIFIED BY OMNIPEEK'],
+    ]},
+
+  { id:'r2-03', name:'Alley Cluster', par:1, tools:['paint','chunk','paint'],
+    teach:'Three lenses, one alley, one jar.',
+    parts:[
+      ['concrete', 1020, 585, 130, 270],
+      ['concrete', 1360, 585, 130, 270],
+      ['cam',      1145, 707],
+      ['cam',      1190, 707],
+      ['cam',      1235, 707],
+      ['sign',      620, 600, '47 CAMERAS SERVING THIS STREET. TARGET: 60.'],
+    ]},
+
+  { id:'r2-04', name:'Line of Sight', par:2, tools:['chunk','paint','paint'],
+    teach:'Paint cannot see through glass either. Fix that first.',
+    parts:[
+      ['glass', 1120, 570, 20, 300],
+      ['wood',  1200, 655, 24, 130],
+      ['wood',  1300, 655, 24, 130],
+      ['wood',  1250, 581, 160, 18],
+      ['cam',   1210, 559],
+      ['cam',   1290, 559],
+      ['sign',   600, 600, 'THIS AREA IS PROTECTED BY LOOKING AT IT'],
+    ]},
+
+  { id:'r2-05', name:'Rooftop Row', par:3, tools:['chunk','paint','chunk','paint'],
+    teach:'Right tool, right roof. The armoured one will not care about the rock.',
+    parts:[
+      ['concrete', 1000, 630, 140, 180],
+      ['cam',      1000, 527],
+      ['concrete', 1180, 590, 140, 260],
+      ['hcam',     1180, 441],
+      ['concrete', 1360, 650, 140, 140],
+      ['cam',      1360, 567],
+      ['sign',      600, 600, 'REPORT UNUSUAL CALM'],
+    ]},
+
+  /* Paint FIRST. The supply is an ordered queue, so its order sets the floor on
+     the shot count — this level asked for par 1 while handing the player a rock
+     to throw first, which no amount of skill can beat. */
+  { id:'r2-06', name:'Up There', par:1, tools:['paint','paint','chunk'],
+    teach:'Two lenses, close together, a long way up. One jar reaches both.',
+    parts:[
+      ['wood', 1250, 550, 28, 340],
+      ['wood', 1250, 371, 200, 18],
+      ['hcam', 1185, 343],
+      ['cam',  1315, 349],
+      ['sign',  600, 600, 'UNOBSERVED AREAS ARE BEING ADDRESSED'],
+    ]},
+
+  { id:'r2-07', name:'Split Duty', par:2, tools:['paint','paint','chunk'],
+    teach:'Two clusters, too far apart to share. Spend one jar on each.',
+    parts:[
+      ['concrete', 1000, 675, 170, 90],
+      ['cam',       950, 617],
+      ['cam',      1050, 617],
+      ['concrete', 1330, 675, 170, 90],
+      ['hcam',     1280, 611],
+      ['hcam',     1380, 611],
+      ['sign',      600, 600, 'YOUR COOPERATION HAS BEEN NOTED AND FILED'],
+    ]},
+
+  { id:'r2-08', name:'Behind the Billboard', par:2, tools:['chunk','paint','paint'],
+    teach:'The Ministry put its own advertising in front of its own cameras.',
+    parts:[
+      ['wood',     1150, 600, 26, 240],
+      ['concrete', 1300, 670, 150, 100],
+      ['cam',      1260, 607],
+      ['cam',      1340, 607],
+      ['sign',      600, 600, 'NOTHING TO HIDE? NOTHING TO WORRY ABOUT.'],
+    ]},
+
+  { id:'r2-09', name:'Scaffold', par:3, tools:['chunk','paint','chunk','paint','paint','chunk'],
+    teach:'It is only scaffolding. Take a deck out and see what comes down.',
+    parts:[
+      ['wood', 1150, 650, 26, 140],
+      ['wood', 1330, 650, 26, 140],
+      ['wood', 1240, 572, 240, 16],
+      ['wood', 1150, 494, 26, 140],
+      ['wood', 1330, 494, 26, 140],
+      ['wood', 1240, 416, 240, 16],
+      ['hcam', 1200, 389],
+      ['cam',  1290, 551],
+      ['sign',  600, 600, 'SCAFFOLD PERMIT PENDING SINCE 2019'],
+    ]},
+
+  /* Three clusters, three shots, and the supply is ordered paint · rock · paint
+     so that three is actually reachable. Built the other way round — rock first,
+     paint at 2 and 4 — the cheapest possible clear was FOUR, and par 3 was a
+     number no player could ever hit.
+
+     The pair on the base sits INSIDE the legs. Outside them the steel blocks the
+     paint's line of sight to one or the other, and a cluster you cannot see both
+     halves of is not a cluster. */
+  { id:'r2-10', name:'The Billboard', par:3, tools:['paint','chunk','paint','chunk','paint','paint','chunk','paint'],
+    teach:'Region finale. Five lenses, two of them armoured, one enormous screen.',
+    parts:[
+      ['concrete', 1150, 690, 280, 60],
+      ['steel',    1060, 585, 26, 150],
+      ['steel',    1240, 585, 26, 150],
+      ['wood',     1150, 435, 300, 150],
+      ['wood',     1150, 352, 200, 16],
+      ['hcam',     1090, 325],
+      ['hcam',     1210, 325],
+      ['cam',      1110, 647],
+      ['cam',      1190, 647],
+      ['wood',     1350, 650, 24, 140],
+      ['cam',      1350, 567],
+      ['sign',      600, 560, 'KESTREL ROW IS PROUD TO BE FULLY OBSERVED'],
     ]},
 ];
 /* ==== LEVELS:END ==== */
@@ -451,6 +697,11 @@ const CUES = {
   CONCRETE_BREAK:  { gap: 60,  parts:[[95,44,0.34,'sawtooth',0.24],[150,70,0.24,'triangle',0.14,0.02]], noise:[0.20,0.28,700,1.6] },
   STEEL_HIT:       { gap: 70,  parts:[[880,760,0.30,'triangle',0.14],[1760,1500,0.22,'sine',0.07,0.01]] },
   CAMERA_DEAD:     { gap: 30,  parts:[[880,880,0.09,'square',0.15],[660,660,0.09,'square',0.14,0.09],[330,140,0.34,'sawtooth',0.17,0.18]], noise:[0.10,0.16,3000,3.0,0.02] },
+  /* Paint is wet, not percussive: a low slap and a soft wash, nothing that
+     sounds like breakage — the tool's whole point is that it breaks nothing. */
+  PAINT_BURST:     { gap: 40,  parts:[[300,110,0.16,'sine',0.20],[150,70,0.22,'triangle',0.12,0.02]], noise:[0.14,0.22,900,0.8] },
+  PAINT_HIT:       { gap: 40,  parts:[[300,110,0.16,'sine',0.22],[520,780,0.18,'sine',0.14,0.06]], noise:[0.16,0.24,1100,0.8] },
+  CAMERA_BLINDED:  { gap: 30,  parts:[[620,300,0.22,'sine',0.16],[210,120,0.30,'triangle',0.13,0.05]], noise:[0.10,0.18,600,1.1,0.01] },
   COLLAPSE:        { gap:200,  parts:[[70,36,0.85,'sawtooth',0.24],[110,55,0.60,'triangle',0.13,0.04]] },
   LEVEL_COMPLETE:  { gap:400,  parts:[[523,523,0.18,'sine',0.20],[659,659,0.18,'sine',0.19,0.13],[784,784,0.42,'sine',0.20,0.26]] },
   LEVEL_FAILED:    { gap:400,  parts:[[330,196,0.42,'sine',0.20],[165,110,0.55,'triangle',0.13,0.05]] },
@@ -540,7 +791,7 @@ function noise(ctx, busNode, buf, vol, dur, freq, q, delay){
 const SAVE_KEY = 'blindspot.save.v1';
 
 const Save = {
-  data: { v: 1, stars: {}, unlocked: 1 },
+  data: { v: 1, stars: {}, unlocked: 1, met: {} },
   ok: false,
   load(){
     try {
@@ -550,6 +801,7 @@ const Save = {
       const p = JSON.parse(raw);
       if (!p || p.v !== 1) return;
       this.data.stars = (p.stars && typeof p.stars === 'object') ? p.stars : {};
+      this.data.met = (p.met && typeof p.met === 'object') ? p.met : {};
       this.data.unlocked = Math.max(1, Math.min(LEVELS.length, p.unlocked | 0 || 1));
     } catch (e) { this.ok = false; }
   },
@@ -579,6 +831,13 @@ function makeEngine(){
 
 function partBody(kind, x, y, w, h, angDeg){
   const m = MATERIALS[kind];
+  /* A rectangle built with an undefined size is a body with NaN mass and NaN
+     position, and Matter will carry it silently for the whole level — it poisons
+     the settle check and blocks every paint raycast. Adding `hcam` to the level
+     format without adding it to this loop's skip list produced exactly that, one
+     ghost per armoured camera. Fail loudly instead. */
+  if (!m || !(w > 0) || !(h > 0))
+    throw new Error('partBody: bad "' + kind + '" at ' + x + ',' + y + ' size ' + w + 'x' + h);
   const b = Bodies.rectangle(x, y, w, h, {
     density: m.density, restitution: m.rest, friction: m.fric, frictionStatic: 0.9,
     slop: 0.02, angle: (angDeg || 0) * Math.PI / 180,
@@ -598,7 +857,8 @@ function buildLevel(index){
     def, index, rng,
     parts: [], cams: [], signs: [], frags: [], particles: [],
     proj: null, trail: [], lastTrail: [],
-    toolsLeft: def.tools, toolsUsed: 0,
+    toolQueue: toolList(def), toolsUsed: 0, toolsLeft: toolList(def).length,
+    splats: [],
     phase: 'aim',                 // aim · live · won · lost
     headless: false,              // set by the self-tests: no DOM, no save, no cards
     elapsed: 0, sinceLaunch: 0, stillMs: 0, trailTick: 0,
@@ -621,7 +881,7 @@ function buildLevel(index){
   const solid = [];
   for (const p of def.parts){
     const kind = p[0];
-    if (kind === 'cam' || kind === 'sign') continue;
+    if (kind === 'cam' || kind === 'hcam' || kind === 'sign') continue;
     let b;
     if (kind === 'barrel'){
       const r = p[3] || 26, m = MATERIALS.barrel;
@@ -654,19 +914,22 @@ function buildLevel(index){
      a hit, falling debris, the mount breaking, or being knocked off the bracket. */
   let group = 0;
   for (const p of def.parts){
-    if (p[0] !== 'cam') continue;
-    const m = MATERIALS.cam;
-    const c = Bodies.rectangle(p[1], p[2], CONFIG.camW, CONFIG.camH, {
+    if (p[0] !== 'cam' && p[0] !== 'hcam') continue;
+    const housed = p[0] === 'hcam';
+    const m = housed ? MATERIALS.hcam : MATERIALS.cam;
+    const w = housed ? CONFIG.camW + 14 : CONFIG.camW, h = housed ? CONFIG.camH + 12 : CONFIG.camH;
+    const c = Bodies.rectangle(p[1], p[2], w, h, {
       density: m.density, restitution: m.rest, friction: m.fric, slop: 0.02,
     });
     c._kind = 'cam'; c._mat = m; c._hp = m.hp; c._maxHp = m.hp;
-    c._w = CONFIG.camW; c._h = CONFIG.camH;
+    c._housed = housed;
+    c._w = w; c._h = h;
     c._alive = true; c._detached = false;
     c._face = (p[3] || 0) * Math.PI / 180;
     c._phase = rng.range(0, Math.PI * 2);      // so a bank of them does not sweep in unison
     c._sweep = 0; c._look = 0;
 
-    const mount = findMount(solid, p[1], p[2]);
+    const mount = findMount(solid, p[1], p[2], h / 2);
     if (mount){
       /* A negative collision group means "these bodies never touch each other".
          Two cameras on ONE deck must JOIN the deck's existing group rather than
@@ -689,8 +952,8 @@ function buildLevel(index){
 
 /* The body a camera is sitting on: nearest solid whose top edge is just below it
    and whose horizontal span contains it. */
-function findMount(solid, x, y){
-  const bottom = y + CONFIG.camH / 2;
+function findMount(solid, x, y, halfH){
+  const bottom = y + (halfH == null ? CONFIG.camH / 2 : halfH);
   let best = null, bestGap = 26;
   for (const b of solid){
     if (b.bounds.min.x - 6 > x || b.bounds.max.x + 6 < x) continue;
@@ -707,6 +970,7 @@ function findMount(solid, x, y){
 
 let S = null;
 const breakQueue = [];
+const burstQueue = [];
 
 function reducedMass(a, b){
   const ma = a.isStatic ? Infinity : a.mass;
@@ -722,6 +986,12 @@ function onCollisions(ev){
   for (const pair of ev.pairs){
     const a = pair.bodyA, b = pair.bodyB;
     const n = pair.collision.normal;
+
+    /* A bursting tool goes off on FIRST contact with anything. Queued, never
+       fired here — the world must not be edited inside a collision handler. */
+    const burst = (a._tool && TOOLS[a._tool].burst) ? a : (b._tool && TOOLS[b._tool].burst) ? b : null;
+    if (burst && !burst._spent){ burst._spent = true; burstQueue.push(burst); }
+    if (burst){ continue; }                             // paint does no impact damage at all
     /* Velocities snapshotted before Engine.update, so this reads the approach
        speed rather than whatever the solver has already done about it. */
     const rvx = (a._pvx || 0) - (b._pvx || 0);
@@ -762,6 +1032,70 @@ function applyDamage(body, j, other){
 
 function contactPoint(a, b){
   return { x: (a.position.x + b.position.x) / 2, y: (a.position.y + b.position.y) / 2 };
+}
+
+/* ── The Paint Bomb ──────────────────────────────────────────────────────────
+   Bursts on first contact. Every camera inside the splash radius that the burst
+   can SEE loses its lens; everything else is untouched. Line of sight is a real
+   ray against the real bodies, which is what makes the tool a puzzle rather than
+   a radius: a pane of glass between the bomb and a camera stops the paint, and
+   the answer is a rock first and paint second. */
+function paintBurst(p){
+  const T = TOOLS.paint;
+  const solid = S.parts.filter(b => b._hp > 0);
+  let got = 0;
+  for (const c of S.cams){
+    if (!c._alive) continue;
+    const d = Math.hypot(c.position.x - p.x, c.position.y - p.y);
+    if (d > T.splashR) continue;
+    /* Start the ray clear of whatever the bomb just hit, or the burst is blocked
+       by the surface it landed on and the tool never works at all. */
+    const ux = (c.position.x - p.x) / (d || 1), uy = (c.position.y - p.y) / (d || 1);
+    const from = { x: p.x + ux * 20, y: p.y + uy * 20 };
+    if (d > 24 && Matter.Query.ray(solid, from, c.position, 3).length) continue;
+    blindCam(c); got++;
+  }
+  addSplats(p);
+  for (let i = 0; i < 26 && S.particles.length < CONFIG.particleMax; i++){
+    const a = S.rng.range(0, 6.2832), sp = S.rng.range(1.5, 7);
+    S.particles.push({ x: p.x, y: p.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.5,
+      life: 0, max: S.rng.range(420, 1000), r: S.rng.range(2.4, 6), c: '#ff44a0', g: 0.19 });
+  }
+  Audio_.play(got ? 'PAINT_HIT' : 'PAINT_BURST');
+  S.shake = Math.min(CONFIG.shakeMax, S.shake + 3);
+}
+
+/* Splats are remembered in the frame of whatever they landed on, so paint on a
+   beam rides the beam down when it falls. */
+function addSplats(p){
+  for (const b of S.parts){
+    if (S.splats.length >= CONFIG.splatMax) break;
+    const dx = p.x - b.position.x, dy = p.y - b.position.y;
+    if (Math.hypot(dx, dy) > 150) continue;
+    const ca = Math.cos(-b.angle), sa = Math.sin(-b.angle);
+    for (let i = 0; i < 2; i++)
+      S.splats.push({ body: b, x: dx * ca - dy * sa + S.rng.range(-16, 16),
+                      y: dx * sa + dy * ca + S.rng.range(-16, 16), r: S.rng.range(9, 20) });
+  }
+  if (p.y > CONFIG.groundY - 150)
+    for (let i = 0; i < 5 && S.splats.length < CONFIG.splatMax; i++)
+      S.splats.push({ body: null, x: p.x + S.rng.range(-70, 70), y: CONFIG.groundY + S.rng.range(-3, 5), r: S.rng.range(8, 22) });
+}
+
+/* Blinded, not broken. The camera is physically fine and completely useless,
+   and it has to LOOK that way — the count in the HUD says a target is down and
+   the thing on screen must agree. */
+function blindCam(c){
+  if (!c._alive) return;
+  c._alive = false; c._blinded = true;
+  S.aliveCams--;
+  Audio_.play('CAMERA_BLINDED');
+  for (let i = 0; i < 10 && S.particles.length < CONFIG.particleMax; i++){
+    S.particles.push({ x: c.position.x, y: c.position.y, vx: S.rng.range(-2, 2), vy: S.rng.range(-2.5, 0.5),
+      life: 0, max: S.rng.range(300, 700), r: S.rng.range(2, 5), c: '#ff44a0', g: 0.16 });
+  }
+  syncCamPips();
+  if (S.aliveCams === 0){ S.slowmo = 620; win(); }
 }
 
 function detachCam(c){
@@ -840,12 +1174,14 @@ function spark(p, n){
   }
 }
 
+function currentTool(){ return S.toolQueue[S.toolsUsed] || 'chunk'; }
+
 function launch(vx, vy){
-  const T = TOOLS.chunk;
+  const id = currentTool(), T = TOOLS[id];
   const b = Bodies.polygon(CONFIG.launchX, CONFIG.launchY, T.sides, T.radius, {
     density: T.density, restitution: T.rest, friction: T.fric, frictionAir: T.frictionAir, slop: 0.02,
   });
-  b._kind = 'chunk'; b._mat = null; b._w = T.radius * 2; b._h = T.radius * 2;
+  b._kind = id; b._tool = id; b._mat = null; b._w = T.radius * 2; b._h = T.radius * 2;
   Composite.add(world, b);
   Body.setVelocity(b, { x: vx, y: vy });
   S.proj = b;
@@ -881,6 +1217,27 @@ function step(dt){
   Engine.update(engine, dt);
 
   while (breakQueue.length) breakBody(breakQueue.pop());
+
+  /* Proximity fuse: a bursting tool goes off when it passes close to a live
+     lens, not only when it hits something. */
+  const pj = S.proj;
+  if (pj && pj._tool && TOOLS[pj._tool].fuseR && !pj._spent){
+    const fr = TOOLS[pj._tool].fuseR;
+    for (const c of S.cams){
+      if (!c._alive) continue;
+      if (Math.hypot(c.position.x - pj.position.x, c.position.y - pj.position.y) < fr){
+        pj._spent = true; burstQueue.push(pj); break;
+      }
+    }
+  }
+
+  while (burstQueue.length){
+    const b = burstQueue.pop();
+    const at = { x: b.position.x, y: b.position.y };
+    Composite.remove(world, b);
+    if (S.proj === b) S.proj = null;
+    paintBurst(at);
+  }
 
   /* Mounted cameras ride their bracket. */
   for (const c of S.cams){
@@ -1027,6 +1384,7 @@ function draw(){
 
   for (const b of S.parts) drawPart(b, 1);
   for (const f of S.frags) drawPart(f, f._alpha);
+  drawSplats();
   for (const c of S.cams) drawCam(c);
   drawLauncher();
   if (S.proj) drawChunk(S.proj);
@@ -1039,9 +1397,14 @@ function draw(){
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
 
+const SKIES = [
+  ['#ffd98a', '#ff9a6c', '#e0525f'],   // Porto Vela — warm harbour dusk
+  ['#f6c98a', '#c98aa8', '#6a4a86'],   // Kestrel Row — city dusk, cooler and higher
+];
 function drawSky(){
+  const p = SKIES[Math.min(regionOf(S.index), SKIES.length - 1)];
   const g = ctx.createLinearGradient(0, 0, 0, CH);
-  g.addColorStop(0, '#ffd98a'); g.addColorStop(0.52, '#ff9a6c'); g.addColorStop(1, '#e0525f');
+  g.addColorStop(0, p[0]); g.addColorStop(0.52, p[1]); g.addColorStop(1, p[2]);
   ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
 }
 
@@ -1063,7 +1426,89 @@ const PALMS = (() => {
   return out;
 })();
 
+/* Kestrel Row. Cooler, taller, closer in — a district rather than a coastline,
+   with murals where Porto Vela has sea. Same code path, different palette and
+   silhouette, because the region has to be recognisable in one glance. */
+const R2_MURALS = [
+  { w: 90, h: 110, kind: 0 }, { w: 74, h: 92, kind: 1 }, { w: 104, h: 84, kind: 2 },
+  { w: 68, h: 118, kind: 1 }, { w: 96, h: 96, kind: 0 }, { w: 80, h: 104, kind: 2 },
+];
+
+function drawBackKestrel(){
+  const px = S.camX;
+  ctx.save();
+
+  /* A hazy sun behind the blocks; the light here is second-hand. */
+  const sx = 420 - px * 0.03;
+  const halo = ctx.createRadialGradient(sx, 150, 30, sx, 150, 300);
+  halo.addColorStop(0, 'rgba(255,224,196,0.40)'); halo.addColorStop(1, 'rgba(255,224,196,0)');
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(sx, 150, 300, 0, 6.2832); ctx.fill();
+
+  /* Three ranks of blocks, each closer and darker. Flat roofs, water tanks,
+     aerials — the skyline of somewhere that has been built on top of itself. */
+  const ranks = [
+    { off: -700, sp: 0.10, base: 640, min: 200, max: 340, fill: '#6c5a86', win: 'rgba(255,214,150,0.20)' },
+    { off: -520, sp: 0.20, base: 664, min: 260, max: 420, fill: '#55446e', win: 'rgba(255,214,150,0.30)' },
+    { off: -360, sp: 0.34, base: 690, min: 320, max: 500, fill: '#3f3157', win: 'rgba(255,214,150,0.42)' },
+  ];
+  const r = new Rng(2202, 'kestrel');
+  for (const rk of ranks){
+    let x = rk.off - px * rk.sp;
+    for (let i = 0; i < 26; i++){
+      const w = r.range(78, 150), h = r.range(rk.min, rk.max), top = rk.base - h;
+      ctx.fillStyle = rk.fill;
+      ctx.fillRect(x, top, w, h + 40);
+      ctx.fillStyle = 'rgba(0,0,0,0.16)'; ctx.fillRect(x, top, w, 6);
+      if (r.chance(0.4)){                                   // roof tank
+        ctx.fillStyle = rk.fill; ctx.fillRect(x + w * 0.55, top - 26, 30, 26);
+        ctx.fillRect(x + w * 0.6, top - 34, 20, 8);
+      }
+      if (r.chance(0.5)){                                   // aerial
+        ctx.strokeStyle = rk.fill; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(x + 18, top); ctx.lineTo(x + 18, top - 34); ctx.stroke();
+      }
+      ctx.fillStyle = rk.win;
+      for (let c = 0; c < Math.floor(w / 26); c++)
+        for (let rw = 0; rw < Math.floor(h / 40); rw++)
+          if ((c * 3 + rw * 5) % 4) ctx.fillRect(x + 10 + c * 26, top + 14 + rw * 40, 12, 18);
+      x += w + 8;
+    }
+  }
+
+  /* Murals — the reason anybody here is on Sofia's side. */
+  let mx = -300 - px * 0.42;
+  for (const m of R2_MURALS){
+    const top = 690 - m.h;
+    ctx.fillStyle = '#2f2547'; ctx.fillRect(mx, top, m.w, m.h);
+    ctx.fillStyle = ['#ff44a0', '#ffe14d', '#6fd3c8'][m.kind];
+    if (m.kind === 0){                                      // a fist
+      ctx.fillRect(mx + m.w * 0.3, top + m.h * 0.3, m.w * 0.4, m.h * 0.42);
+      ctx.fillRect(mx + m.w * 0.38, top + m.h * 0.16, m.w * 0.24, m.h * 0.2);
+    } else if (m.kind === 1){                               // a crossed-out lens
+      ctx.beginPath(); ctx.arc(mx + m.w / 2, top + m.h / 2, m.w * 0.26, 0, 6.2832); ctx.fill();
+      ctx.strokeStyle = '#2f2547'; ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.moveTo(mx + m.w * 0.22, top + m.h * 0.74);
+      ctx.lineTo(mx + m.w * 0.78, top + m.h * 0.26); ctx.stroke();
+    } else {                                                // three stripes
+      for (let k = 0; k < 3; k++) ctx.fillRect(mx + m.w * 0.18, top + m.h * (0.28 + k * 0.17), m.w * 0.64, m.h * 0.1);
+    }
+    mx += m.w + 210;
+  }
+
+  /* The street wall the levels stand on. */
+  ctx.fillStyle = '#3a2b4e'; ctx.fillRect(-600, 690, 4000, CONFIG.groundY - 690);
+  ctx.fillStyle = '#4a3862'; ctx.fillRect(-600, 690, 4000, 7);
+
+  const haze = ctx.createLinearGradient(0, 120, 0, CONFIG.groundY);
+  haze.addColorStop(0, 'rgba(120,90,160,0.10)');
+  haze.addColorStop(0.62, 'rgba(150,105,170,0.30)');
+  haze.addColorStop(1, 'rgba(170,110,165,0.38)');
+  ctx.fillStyle = haze; ctx.fillRect(-900, 120, 4200, CONFIG.groundY - 120);
+  ctx.restore();
+}
+
 function drawBack(){
+  if (regionOf(S.index) === 1) return drawBackKestrel();
   const px = S.camX;
   ctx.save();
 
@@ -1305,10 +1750,39 @@ function drawSign(b){
 
 function drawChunk(b){
   ctx.save();
-  ctx.fillStyle = '#8d7f6d'; bodyShape(b); ctx.fill();
-  ctx.strokeStyle = '#5d5346'; ctx.lineWidth = 2.4; ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,0.18)';
-  ctx.beginPath(); ctx.arc(b.position.x - 4, b.position.y - 4, 4.5, 0, 6.2832); ctx.fill();
+  if (b._tool === 'paint'){
+    /* A taped-up jar of pink. It should read as improvised, not as ordnance. */
+    ctx.fillStyle = '#ff44a0'; bodyShape(b); ctx.fill();
+    ctx.strokeStyle = '#a81f68'; ctx.lineWidth = 2.4; ctx.stroke();
+    ctx.strokeStyle = '#f6efe2'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(b.position.x - 11, b.position.y - 3); ctx.lineTo(b.position.x + 11, b.position.y + 3); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath(); ctx.arc(b.position.x - 4, b.position.y - 5, 3.4, 0, 6.2832); ctx.fill();
+  } else {
+    ctx.fillStyle = '#8d7f6d'; bodyShape(b); ctx.fill();
+    ctx.strokeStyle = '#5d5346'; ctx.lineWidth = 2.4; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.beginPath(); ctx.arc(b.position.x - 4, b.position.y - 4, 4.5, 0, 6.2832); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* Paint stays where it landed, in the frame of whatever it landed on. Splats on
+   a body that has since broken are dropped with it. */
+function drawSplats(){
+  ctx.save();
+  ctx.fillStyle = '#ff44a0';
+  for (const s of S.splats){
+    let x = s.x, y = s.y;
+    if (s.body){
+      if (S.parts.indexOf(s.body) < 0) continue;
+      const ca = Math.cos(s.body.angle), sa = Math.sin(s.body.angle);
+      x = s.body.position.x + s.x * ca - s.y * sa;
+      y = s.body.position.y + s.x * sa + s.y * ca;
+    }
+    ctx.beginPath(); ctx.arc(x, y, s.r, 0, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + s.r * 0.7, y - s.r * 0.5, s.r * 0.45, 0, 6.2832); ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -1319,12 +1793,30 @@ function drawCam(c){
   ctx.translate(c.position.x, c.position.y);
   ctx.rotate(c.angle);
 
-  const look = c._alive ? (c._sweep * (1 - c._look) + c._look * -0.55) : 0.5;
+  const look = c._alive ? (c._sweep * (1 - c._look) + c._look * -0.55) : (c._blinded ? c._sweep : 0.5);
   const w = CONFIG.camW, h = CONFIG.camH;
 
   if (c._mount && !c._detached){
     ctx.save(); ctx.fillStyle = '#4b4458';
-    ctx.fillRect(-4, h / 2 - 2, 8, 14); ctx.restore();
+    ctx.fillRect(-4, c._h / 2 - 2, 8, 14); ctx.restore();
+  }
+
+  /* The armoured housing: a steel box bolted around the camera, drawn OUTSIDE
+     the sweep rotation because the box does not turn — only the camera inside it
+     does. That is also the read the player needs: the lens still moves, so the
+     lens is still the way in. */
+  if (c._housed){
+    ctx.fillStyle = c._alive ? '#5f7186' : '#4a4a52';
+    roundRect(-c._w / 2, -c._h / 2, c._w, c._h, 5); ctx.fill();
+    ctx.strokeStyle = '#33404f'; ctx.lineWidth = 2.6;
+    roundRect(-c._w / 2, -c._h / 2, c._w, c._h, 5); ctx.stroke();
+    ctx.fillStyle = '#8fa3b8';
+    for (const bx of [-c._w / 2 + 5, c._w / 2 - 5])
+      for (const by of [-c._h / 2 + 5, c._h / 2 - 5]){
+        ctx.beginPath(); ctx.arc(bx, by, 2.2, 0, 6.2832); ctx.fill();
+      }
+    ctx.fillStyle = 'rgba(255,255,255,0.13)';
+    ctx.fillRect(-c._w / 2 + 3, -c._h / 2 + 3, c._w - 6, 4);
   }
 
   ctx.rotate(look);
@@ -1345,6 +1837,16 @@ function drawCam(c){
   if (c._alive){
     ctx.fillStyle = 'rgba(143,216,232,0.55)';
     ctx.beginPath(); ctx.arc(-w / 2 - 1, -3, 2.6, 0, 6.2832); ctx.fill();
+  } else if (c._blinded){
+    /* Painted over, not smashed. A blob across the glass, still gently sweeping
+       an empty street — funnier and more legible than a cracked lens, and it
+       keeps the two ways of losing a camera visually distinct. */
+    ctx.fillStyle = '#ff44a0';
+    ctx.beginPath(); ctx.arc(-w / 2 + 1, 0, h * 0.5, 0, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.arc(-w / 2 + 8, -7, h * 0.22, 0, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.arc(-w / 2 - 6, 8, h * 0.17, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.30)';
+    ctx.beginPath(); ctx.arc(-w / 2 - 3, -4, 3, 0, 6.2832); ctx.fill();
   } else {
     ctx.strokeStyle = '#6d6d78'; ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.moveTo(-w / 2 - 7, -6); ctx.lineTo(-w / 2 + 8, 7);
@@ -1405,15 +1907,22 @@ function drawLauncher(){
     ctx.beginPath(); ctx.moveTo(x - 14, y - 16); ctx.lineTo(p.x, p.y);
     ctx.moveTo(x + 14, y - 22); ctx.lineTo(p.x, p.y); ctx.stroke();
 
-    ctx.fillStyle = '#8d7f6d';
-    ctx.beginPath(); ctx.arc(p.x, p.y, TOOLS.chunk.radius, 0, 6.2832); ctx.fill();
-    ctx.strokeStyle = '#5d5346'; ctx.lineWidth = 2.4; ctx.stroke();
+    /* The tool waiting in the sling is the tool that will fly. A player must
+       never have to read the HUD to find out what they are about to throw. */
+    const T = TOOLS[currentTool()];
+    ctx.fillStyle = T.pip;
+    ctx.beginPath(); ctx.arc(p.x, p.y, T.radius, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = currentTool() === 'paint' ? '#a81f68' : '#5d5346'; ctx.lineWidth = 2.4; ctx.stroke();
+    if (currentTool() === 'paint'){
+      ctx.strokeStyle = '#f6efe2'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(p.x - 10, p.y - 3); ctx.lineTo(p.x + 10, p.y + 3); ctx.stroke();
+    }
 
     if (!S.aiming){
       const t = (S.elapsed % 1400) / 1400;
-      ctx.strokeStyle = 'rgba(255,225,77,' + (0.6 * (1 - t)).toFixed(2) + ')';
+      ctx.strokeStyle = (currentTool() === 'paint' ? 'rgba(255,68,160,' : 'rgba(255,225,77,') + (0.6 * (1 - t)).toFixed(2) + ')';
       ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(x, y, TOOLS.chunk.radius + 6 + t * 26, 0, 6.2832); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, T.radius + 6 + t * 26, 0, 6.2832); ctx.stroke();
     }
   }
   ctx.lineCap = 'butt';
@@ -1555,7 +2064,7 @@ function startLevel(i){
   playing = true;
   hideScreens();
   $('lvlName').textContent = S.def.name;
-  $('parLine').textContent = 'PAR ' + S.def.par + ' · ' + S.def.tools + ' TOOLS';
+  $('parLine').textContent = 'PAR ' + S.def.par + ' · ' + S.toolQueue.length + ' TOOLS';
   syncTools(); syncCamPips();
   clampCam();
   if (i === 0) scheduleHint();
@@ -1563,13 +2072,19 @@ function startLevel(i){
 
 function restart(){ startLevel(current); }
 
+/* Tools are shown as a QUEUE, in order, with the next one ringed. With two tool
+   types the count is no longer the whole story — which one is next decides the
+   shot, so the HUD has to say it without being read. */
 function syncTools(){
   const el = $('tools'); el.innerHTML = '';
-  for (let i = 0; i < S.def.tools; i++){
+  S.toolQueue.forEach((id, i) => {
     const d = document.createElement('div');
-    d.className = 'tool' + (i < S.toolsUsed ? ' spent' : '');
+    const spent = i < S.toolsUsed;
+    d.className = 'tool' + (spent ? ' spent' : '') + (i === S.toolsUsed ? ' next' : '');
+    if (!spent) d.style.background = TOOLS[id].pip;
+    d.title = TOOLS[id].name;
     el.appendChild(d);
-  }
+  });
 }
 function syncCamPips(){
   const el = $('cams'); el.innerHTML = '';
@@ -1607,23 +2122,128 @@ function showLost(){
   show('lost');
 }
 
+/* A region opens on total stars, not on having reached it (GDD §9.2). A locked
+   region is still SHOWN, with its rebel and its tool and what it costs — the
+   thing you are working toward is more motivating visible than hidden. */
+function regionOpen(r){ return Save.total() >= REGIONS[r].starGate; }
+
 function openSelect(){
   playing = false;
-  const g = $('tiles'); g.innerHTML = '';
-  LEVELS.forEach((l, i) => {
-    const locked = i + 1 > Save.data.unlocked;
-    const st = Save.starsFor(l.id);
-    const d = document.createElement('div');
-    d.className = 'tile' + (locked ? ' locked' : '');
-    d.innerHTML = '<div class="n">' + (i + 1) + '</div><div class="t">' + (locked ? 'Locked' : l.name) +
-                  '</div><div class="s">' + (st ? '★'.repeat(st) + '☆'.repeat(3 - st) : '☆☆☆') + '</div>';
-    if (!locked) d.onclick = () => { Audio_.arm(); Audio_.play('UI'); startLevel(i); };
-    g.appendChild(d);
+  const host = $('tiles'); host.innerHTML = '';
+
+  REGIONS.forEach((reg, r) => {
+    const open = regionOpen(r);
+    const head = document.createElement('div');
+    head.className = 'regHead' + (open ? '' : ' shut');
+    head.innerHTML = '<div class="rn">' + reg.name + '</div><div class="rs">' +
+      (open ? REBELS[reg.rebel].name + ' · ' + reg.tools
+            : '★ ' + Save.total() + ' / ' + reg.starGate + ' to open · ' + reg.blurb) + '</div>';
+    host.appendChild(head);
+
+    const g = document.createElement('div');
+    g.className = 'grid';
+    for (const i of levelsIn(r)){
+      const l = LEVELS[i];
+      const locked = !open || i + 1 > Save.data.unlocked;
+      const st = Save.starsFor(l.id);
+      const d = document.createElement('div');
+      d.className = 'tile' + (locked ? ' locked' : '');
+      d.innerHTML = '<div class="n">' + (i - levelsIn(r)[0] + 1) + '</div><div class="t">' +
+        (locked ? 'Locked' : l.name) + '</div><div class="s">' +
+        (st ? '★'.repeat(st) + '☆'.repeat(3 - st) : '☆☆☆') + '</div>';
+      if (!locked) d.onclick = () => { Audio_.arm(); Audio_.play('UI'); enterLevel(i); };
+      g.appendChild(d);
+    }
+    host.appendChild(g);
   });
+
   const tot = Save.total();
   $('totalStars').textContent = tot + ' / ' + (LEVELS.length * 3) + ' stars';
   show('select');
 }
+
+/* Entering a level is where a rebel can join, so it is a different door from
+   startLevel — which the intro card itself has to call once it is dismissed. */
+function enterLevel(i){
+  const reg = regionOf(i);
+  const rebel = REGIONS[reg].rebel;
+  if (reg > 0 && !Save.data.met[rebel]){ showIntro(rebel, i); return; }
+  startLevel(i);
+}
+
+/* ── A rebel joins ───────────────────────────────────────────────────────────
+   Four panels, a hard cut, and a button. GDD §13 says quick and memorable rather
+   than cinematic: no timers, no fades, nothing to sit through twice. Drawn here
+   rather than authored as images so the game stays one file. */
+let introNext = 0;
+
+function showIntro(rebelId, levelIndex){
+  const r = REBELS[rebelId];
+  introNext = levelIndex;
+  $('introName').textContent = r.name.split(' ')[0].toUpperCase() + ' HAS JOINED THE RESISTANCE';
+  $('introTool').textContent = 'NEW TOOL: ' + TOOLS[r.tool].name.toUpperCase();
+  const cs = document.querySelectorAll('#intro .pc');
+  for (let i = 0; i < cs.length; i++) drawPanel(cs[i].getContext('2d'), i);
+  Save.data.met[rebelId] = 1; Save.flush();
+  show('intro');
+}
+
+function drawPanel(g, n){
+  const W = 260, H = 200;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = ['#ffd08a', '#ffbe86', '#ffab86', '#ff8fa8'][n];
+  g.fillRect(0, 0, W, H);
+
+  /* Street: a wall, a kerb, and the mast that is watching it. */
+  g.fillStyle = '#c8748c'; g.fillRect(0, 132, W, 68);
+  g.fillStyle = '#a85a76'; g.fillRect(0, 132, W, 5);
+  g.fillStyle = '#7a3a55';
+  for (let x = 8; x < W; x += 44) g.fillRect(x, 96, 26, 36);       // windows behind
+
+  const mx = n === 3 ? 130 : 178;
+  g.fillStyle = '#4b4458'; g.fillRect(mx - 4, 40, 8, 96);          // mast
+
+  /* The camera, turning to look at her, then covered in paint. */
+  g.save();
+  g.translate(mx, 40);
+  g.rotate(n === 0 ? -0.25 : n === 3 ? 0 : 0.35);
+  g.fillStyle = n === 3 ? '#4a4a52' : '#3d4a5c';
+  g.fillRect(-19, -13, 38, 26);
+  g.fillStyle = '#556478'; g.fillRect(-22, -18, 27, 6);
+  if (n === 3){
+    g.fillStyle = '#ff44a0';
+    g.beginPath(); g.arc(-17, 0, 17, 0, 6.2832); g.fill();
+    g.beginPath(); g.arc(-4, -11, 9, 0, 6.2832); g.fill();
+    g.beginPath(); g.arc(-24, 10, 7, 0, 6.2832); g.fill();
+  } else {
+    g.fillStyle = '#101820'; g.beginPath(); g.arc(-17, 0, 11, 0, 6.2832); g.fill();
+    g.strokeStyle = '#8fd8e8'; g.lineWidth = 2; g.stroke();
+    g.fillStyle = '#ff3b52'; g.beginPath(); g.arc(13, -7, 3.4, 0, 6.2832); g.fill();
+  }
+  g.restore();
+
+  /* Sofia. Identified by the hair and the can, per the silhouette rule. */
+  if (n < 3){
+    const sx = [58, 96, 124][n];
+    g.fillStyle = '#221d2e';
+    g.fillRect(sx - 8, 96, 17, 38);                                 // body
+    g.beginPath(); g.arc(sx, 88, 11, 0, 6.2832); g.fill();          // head
+    g.fillStyle = '#ff44a0';
+    g.beginPath(); g.arc(sx - 6, 84, 12, 0, 6.2832); g.fill();      // hair
+    g.fillStyle = '#221d2e'; g.fillRect(sx - 9, 134, 7, 18); g.fillRect(sx + 2, 134, 7, 18);
+    if (n === 2){                                                   // the can, raised
+      g.fillStyle = '#f6efe2'; g.fillRect(sx + 10, 78, 9, 17);
+      g.fillStyle = '#ff44a0'; g.fillRect(sx + 10, 74, 9, 5);
+      g.strokeStyle = '#221d2e'; g.lineWidth = 2;
+      for (const a of [-0.5, 0, 0.5]){
+        g.beginPath(); g.moveTo(sx + 22, 74);
+        g.lineTo(sx + 22 + Math.cos(a) * 14, 74 + Math.sin(a) * 14 - 6); g.stroke();
+      }
+    }
+  }
+}
+
+$('bIntroGo').onclick = () => { Audio_.arm(); Audio_.play('UI'); startLevel(introNext); };
 
 function toggleMute(){
   Audio_.arm();
@@ -1632,10 +2252,10 @@ function toggleMute(){
   $('bMute').style.opacity = Audio_.muted ? 0.45 : 1;
 }
 
-$('bPlay').onclick = () => { Audio_.arm(); Audio_.play('UI'); startLevel(Math.min(Save.data.unlocked - 1, LEVELS.length - 1)); };
+$('bPlay').onclick = () => { Audio_.arm(); Audio_.play('UI'); enterLevel(Math.min(Save.data.unlocked - 1, LEVELS.length - 1)); };
 $('bSelect').onclick = () => { Audio_.arm(); openSelect(); };
 $('bBack').onclick = () => show('title');
-$('bNext').onclick = () => { Audio_.play('UI'); startLevel(Math.min(current + 1, LEVELS.length - 1)); };
+$('bNext').onclick = () => { Audio_.play('UI'); enterLevel(Math.min(current + 1, LEVELS.length - 1)); };
 $('bReplay').onclick = () => { Audio_.play('UI'); restart(); };
 $('bAgain').onclick = () => { Audio_.play('UI'); restart(); };
 $('bSel2').onclick = openSelect;
@@ -1701,7 +2321,7 @@ window.BS = {
   settleTest(){
     const out = [];
     for (let i = 0; i < LEVELS.length; i++){
-      const want = LEVELS[i].parts.filter(p => p[0] !== 'sign' && p[0] !== 'cam').length;
+      const want = LEVELS[i].parts.filter(p => p[0] !== 'sign' && p[0] !== 'cam' && p[0] !== 'hcam').length;
       S = headlessLevel(i);
       for (let k = 0; k < 120; k++) step(CONFIG.stepMs);        // 2 s, well past the grace
       const got = S.parts.filter(p => !p._sign).length;
@@ -1742,38 +2362,191 @@ window.BS = {
     for (let i = 0; i < LEVELS.length; i++){
       if (only !== null && i !== only) continue;
       const def = LEVELS[i];
-      const budget = Math.min(opts.maxShots || def.tools, def.tools);
+      const supply = toolList(def).length;
+      const budget = Math.min(opts.maxShots || supply, supply);
       const script = [];
       let cleared = false, trace = [];
       while (script.length < budget && !cleared){
-        let best = null;
-        for (let a = 0; a < angles && !cleared; a++){
+        /* PASS 1 — sweep every shot and score what it achieves. Nothing is
+           chosen here, and in particular the sweep is never cut short when a
+           shot happens to clear the level: taking the first clearing shot meant
+           taking whichever one the loop reached first, which was always the
+           steepest angle at nearly full power — the single most fragile solution
+           on offer. */
+        const cands = [];
+        for (let a = 0; a < angles; a++){
           for (let p = 0; p < powers; p++){
             const ang = (-82 + a * (76 / (angles - 1))) * Math.PI / 180;
-            const pw = CONFIG.maxPull * (0.5 + 0.5 * (p / (powers - 1)));
+            /* Sweep down to 40% pull. Starting at 50% hid every gentle solution
+               and left the search reporting that levels needed full power when
+               they did not. */
+            const pw = CONFIG.maxPull * (0.4 + 0.6 * (p / (powers - 1)));
             const vx = Math.cos(ang) * pw * CONFIG.power, vy = Math.sin(ang) * pw * CONFIG.power;
             S = headlessLevel(i);
             for (const s of script) replayShot(s);
             const c0 = S.aliveCams, n0 = solidCount(), h0 = structureHp();
             replayShot({ vx, vy });
             const sc = progressScore(c0, n0, h0);
-            if (!best || sc.score > best.score) best = { vx, vy, ...sc };
-            if (S.aliveCams === 0){ best = { vx, vy, ...sc }; cleared = true; break; }
+            sc.pull = pw / CONFIG.maxPull; sc.raw = sc.score;
+            cands.push({ vx, vy, ...sc, clears: S.aliveCams === 0 });
           }
         }
+        cands.sort((x, y) => y.score - x.score);
+
+        /* PASS 2 — pick the shot a PERSON can repeat, by measuring it rather
+           than guessing at it.
+
+           The first attempt at this preferred low power, on the theory that a
+           solution at the power ceiling has no margin above it. True, but not
+           the point: gentle is not the same as forgiving. A minimum-power lob
+           that just drops into a gap is every bit as much a trick shot, and
+           selecting for it dropped four levels below a 30% clear rate.
+
+           So the top candidates are re-fired with a hand's worth of error on
+           them, and the one that still works most often wins. That is the
+           property the game actually needs, measured directly. */
+        const TOP = Math.min(10, cands.length), R = 7;
+        const jitter = new Rng(0x71771, 'robust');
+        let best = null;
+        for (let ci = 0; ci < TOP; ci++){
+          const cd = cands[ci];
+          if (cd.raw <= 0) break;                     // nothing achieved: no point testing it
+          const want = cd.killed, mag0 = Math.hypot(cd.vx, cd.vy), ang0 = Math.atan2(cd.vy, cd.vx);
+          let held = 0;
+          for (let r = 0; r < R; r++){
+            const ang = ang0 + (jitter.float() * 2 - 1) * 0.020;      // ±1.15°
+            const mag = mag0 * (1 + (jitter.float() * 2 - 1) * 0.03); // ±3% pull
+            S = headlessLevel(i);
+            for (const s of script) replayShot(s);
+            const c0 = S.aliveCams;
+            replayShot({ vx: Math.cos(ang) * mag, vy: Math.sin(ang) * mag });
+            if (c0 - S.aliveCams >= want && (want > 0 || S.parts.length < solidCount() + 1)) held++;
+          }
+          cd.robust = held / R;
+          if (!best || cd.robust > best.robust || (cd.robust === best.robust && cd.score > best.score)) best = cd;
+          await yieldNow();
+        }
+        if (!best) best = cands[0];
         /* Scored on PROGRESS, not on kills. Hard Hat Area's intended first shot
            kills nothing at all — it takes a leg out so the slab can do the work
            — and a solver that only rewards kills calls that level impossible. */
-        if (!best || best.score <= 0) break;
-        script.push({ vx: best.vx, vy: best.vy });
-        trace.push('k' + best.killed + ' b' + best.broke + ' hp' + Math.round(best.hurt));
-        await new Promise(r => setTimeout(r, 0));       // let the tab breathe
+        if (!best) break;
+        /* And a tool that can do NOTHING here is not a dead end either. "The
+           Housing" hands the player a rock precisely so they discover it bounces
+           off armour; a search that stops the moment a shot achieves nothing
+           declares that level unsolvable. Spend the useless tool and move on —
+           unless it is the last one, where there is nothing left to move on to. */
+        if (best.raw <= 0){
+          if (script.length + 1 >= budget) break;
+          script.push({ vx: best.vx, vy: best.vy, killed: 0, waste: true });
+          trace.push('spent (nothing this tool can do)');
+          await yieldNow();
+          continue;
+        }
+        script.push({ vx: best.vx, vy: best.vy, killed: best.killed });
+        if (best.clears) cleared = true;
+        trace.push('k' + best.killed + ' b' + best.broke + ' hp' + Math.round(best.hurt) + ' @' + best.pull.toFixed(2));
+        await yieldNow();
       }
-      results.push({ level: def.id, name: def.name, par: def.par, tools: def.tools,
-                     solvedIn: cleared ? script.length : null, trace,
+      const maxPull = script.length ? Math.max(...script.map(k => Math.hypot(k.vx, k.vy) / (CONFIG.maxPull * CONFIG.power))) : 0;
+      results.push({ level: def.id, index: i, name: def.name, par: def.par, tools: supply,
+                     solvedIn: cleared ? script.length : null, trace, script,
+                     maxPull: +maxPull.toFixed(2),
                      ok: cleared && script.length <= def.par });
     }
     return results;
+  },
+
+  /* ── The playtest bot ──────────────────────────────────────────────────────
+     "Beatable but not too easy" is a claim, and a claim needs a number. This
+     replays each level's known-good shot script with a HUMAN-SIZED error on it —
+     the aim preview is exact, so a player's error is not in seeing the arc, it
+     is in choosing and pulling it — and reports how often that still wins.
+
+     MEASURE THE INSTRUMENT: the bot cannot re-plan. It follows the script it was
+     given, so a shot that misses early leaves it firing the remaining shots at a
+     world the script never anticipated. A real player re-aims. Every clear rate
+     below is therefore a LOWER bound, and the star mix is pessimistic in the
+     same direction. It is useful for comparing levels against each other and for
+     catching a level that is far outside the band — not as an absolute. */
+  async playtest(opts = {}){
+    const trials = opts.trials || 40;
+    /* CALIBRATED, not guessed. Measured landing scatter at ~1000 px of range
+       against a 38 px camera: 1.0°/1.5% → 43 px, 2.0°/3% → 85 px, 3.5°/6% →
+       156 px. The trajectory preview is exact and shows the whole flight to the
+       ground, so the player's error is mouse precision, not prediction — moving
+       the landing point 43 px takes about 3 px of mouse travel on a 132 px drag.
+       The 3.5°/6% figures this was first written with model somebody flicking
+       without looking at the arc at all, and judging levels against that would
+       have made the whole game easier to satisfy a bot that aims badly. */
+    const sDeg = opts.sigmaDeg == null ? 1.5 : opts.sigmaDeg;
+    const sPull = opts.sigmaPull == null ? 0.025 : opts.sigmaPull;
+    const solved = opts.solve || await this.solveTest({ angles: 32, powers: 7 });
+    const rng = new Rng(0xB07, 'playtest');
+    const gauss = () => {                            // Box–Muller, seeded
+      const u = Math.max(1e-9, rng.float()), v = rng.float();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.2832 * v);
+    };
+    const out = [];
+    for (const res of solved){
+      if (!res.script || !res.script.length){ out.push({ level: res.level, clear: 0, note: 'no script' }); continue; }
+      let cleared = 0, stars3 = 0, shotSum = 0;
+      for (let t = 0; t < trials; t++){
+        S = headlessLevel(res.index);
+        const budget = toolList(LEVELS[res.index]).length;
+        let used = 0, turn = 0;
+        /* Work through the targets, and come BACK to the ones that are not down
+           yet. The first version of this walked the script once and then repeated
+           its LAST shot forever, so a level with three separate structures spent
+           its spare rocks re-shooting the one it had already finished. */
+        let pending = res.script.map((_, i) => i);
+        for (let k = 0; k < budget && S.aliveCams > 0; k++){
+          if (!pending.length) pending = res.script.map((_, i) => i);
+          const pi = turn++ % pending.length;
+          const base = res.script[pending[pi]];
+          /* Perturb in the units the PLAYER controls — angle and pull — not in
+             raw velocity, or the noise is not the noise a hand makes. */
+          const ang = Math.atan2(base.vy, base.vx) + gauss() * sDeg * Math.PI / 180;
+          const mag = Math.hypot(base.vx, base.vy) * (1 + gauss() * sPull);
+          const cap = CONFIG.maxPull * CONFIG.power;
+          const m = Math.max(cap * 0.15, Math.min(cap, mag));
+          const before = S.aliveCams;
+          replayShot({ vx: Math.cos(ang) * m, vy: Math.sin(ang) * m });
+          used++;
+          /* A shot that was supposed to take a camera and took none is a MISS,
+             and the next scripted shot was planned for a world this one failed
+             to create. Firing it anyway is what a bot does; trying the same shot
+             again is what a person does. So a hit retires that target and a miss
+             leaves it in the queue to come back to. */
+          if (before - S.aliveCams > 0 || !base.killed) pending.splice(pi, 1);
+        }
+        if (S.aliveCams === 0){
+          cleared++; shotSum += used;
+          if (starsFor(used, LEVELS[res.index].par) === 3) stars3++;
+        }
+        await yieldNow();
+      }
+      out.push({ level: res.level, name: res.name, par: res.par,
+                 clear: Math.round(100 * cleared / trials),
+                 threeStar: Math.round(100 * stars3 / trials),
+                 avgShots: cleared ? +(shotSum / cleared).toFixed(1) : null });
+    }
+    /* The band. Below `minClear` a level is a needle-thread; above `maxThreeStar`
+       it hands out the top grade for nothing and the stars stop meaning anything.
+       40 is deliberately low: this bot cannot re-plan, so a region FINALE that
+       measures in the forties is a demanding last level rather than a broken one,
+       and every finale should be the hardest thing in its region.
+
+       Levels flagged `tutorial` are exempt from the too-easy end. A handshake
+       level is SUPPOSED to hand out three stars — "Say Cheese" is not a puzzle,
+       it is a demonstration that dragging backwards does something. */
+    const LO = opts.minClear == null ? 40 : opts.minClear;
+    const HI = opts.maxThreeStar == null ? 92 : opts.maxThreeStar;
+    const tooHard = out.filter(r => r.clear < LO).map(r => r.level + ' ' + r.clear + '%');
+    const tooEasy = out.filter((r, i) => r.threeStar > HI && !LEVELS[solved[i].index].tutorial)
+                       .map(r => r.level + ' ' + r.threeStar + '%');
+    return { rows: out, band: { minClear: LO, maxThreeStar: HI }, tooHard, tooEasy,
+             pass: !tooHard.length && !tooEasy.length };
   },
 
   async all(opts){
@@ -1784,6 +2557,18 @@ window.BS = {
     return { settle, preview, solve, fails, pass: fails.length === 0 };
   },
 };
+
+/* Hand the event loop back between shots, WITHOUT a timer.
+     - `setTimeout` is clamped to ~1 s per call in a hidden or backgrounded tab,
+       which turns a twelve-second sweep into a several-minute hang;
+     - a bare microtask never yields at all, so the page goes unresponsive for
+       the whole run and gets killed.
+   A MessageChannel is a real macrotask and is not throttled. */
+const _yieldCh = typeof MessageChannel !== 'undefined' ? new MessageChannel() : null;
+function yieldNow(){
+  if (!_yieldCh) return Promise.resolve();
+  return new Promise(res => { _yieldCh.port1.onmessage = () => res(); _yieldCh.port2.postMessage(0); });
+}
 
 /* How much did that shot achieve? A dead camera dominates, a broken part earns
    real credit, and DAMAGE DEALT carries the rest — which is what lets the search
@@ -1817,11 +2602,13 @@ function progressScore(cams0, parts0, hp0){
            score: killed * 1000 + broke * 60 + hurt + moved * 0.05 };
 }
 
-/* A level with no DOM, no save writes and no result cards. */
+/* A level with no DOM, no save writes and no result cards. The tool QUEUE is
+   left exactly as authored — inflating it was fine while every tool was a rock,
+   but a solver handed unlimited chunks would cheerfully "prove" a paint level
+   solvable with a tool the player is never given. */
 function headlessLevel(i){
   const st = buildLevel(i);
   st.headless = true;
-  st.toolsLeft = 99;                  // the solver manages its own budget
   return st;
 }
 
