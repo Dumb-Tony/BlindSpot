@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Blind Spot</title>
+<meta name="description" content="Young rebels dismantle ridiculous surveillance installations. A 2D physics destruction puzzle.">
+<style>
+  /* ══ BLIND SPOT — stencil-and-poster. Flat colour, heavy shapes, protest palette. ══ */
+  :root{
+    --ink:#221d2e; --paper:#f6efe2; --accent:#ffe14d; --accent2:#ff5a3c;
+    --pink:#ff44a0; --cool:#3d4a5c; --led:#ff3b52; --dim:#9a94a8;
+    --head: Impact, 'Haettenschweiler', 'Arial Narrow Bold', 'Arial Black', system-ui, sans-serif;
+    --body: 'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent}
+  html,body{height:100%; overflow:hidden; background:#1a1626; color:var(--paper); font-family:var(--body)}
+  body{user-select:none; cursor:default}
+  #c{position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none}
+
+  /* ── HUD: at most four things on screen during play (GDD §15) ───────────── */
+  #hud{position:fixed; inset:0; pointer-events:none; padding:16px; display:flex;
+       flex-direction:column; justify-content:space-between; opacity:0; transition:opacity .2s}
+  #hud.on{opacity:1}
+  .row{display:flex; justify-content:space-between; align-items:flex-start; gap:12px}
+  .pill{background:rgba(34,29,46,.82); border:2px solid rgba(246,239,226,.16); border-radius:10px;
+        padding:8px 12px; backdrop-filter:blur(6px)}
+  #lvlName{font-family:var(--head); font-size:22px; letter-spacing:.06em; text-transform:uppercase; line-height:1}
+  #parLine{font-size:11px; letter-spacing:.16em; color:var(--accent); margin-top:4px; font-weight:700}
+  #tools{display:flex; gap:7px; margin-top:10px; align-items:center}
+  .tool{width:22px; height:22px; border-radius:50%; background:#8d7f6d;
+        box-shadow:inset -3px -3px 0 rgba(0,0,0,.28), 0 0 0 2px rgba(246,239,226,.22)}
+  .tool.spent{background:transparent; box-shadow:inset 0 0 0 2px rgba(246,239,226,.18); opacity:.5}
+  #cams{display:flex; gap:7px; align-items:center; justify-content:flex-end; flex-wrap:wrap; max-width:230px}
+  .cam{width:20px; height:15px; border-radius:3px; background:var(--cool); position:relative;
+       box-shadow:0 0 0 2px rgba(246,239,226,.2)}
+  .cam::after{content:''; position:absolute; right:2px; top:5px; width:5px; height:5px;
+       border-radius:50%; background:var(--led); box-shadow:0 0 6px var(--led)}
+  .cam.off{background:#40404a; opacity:.4}
+  .cam.off::after{background:#2a2a30; box-shadow:none}
+  #btns{display:flex; gap:8px; pointer-events:auto}
+  .btn{font-family:var(--head); letter-spacing:.06em; text-transform:uppercase; cursor:pointer;
+       background:var(--paper); color:var(--ink); border:0; border-radius:9px; padding:10px 18px;
+       font-size:17px; box-shadow:0 4px 0 rgba(0,0,0,.32); transition:transform .07s, box-shadow .07s}
+  .btn:hover{transform:translateY(-1px); box-shadow:0 5px 0 rgba(0,0,0,.32)}
+  .btn:active{transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.32)}
+  .btn.y{background:var(--accent)}
+  .btn.ghost{background:transparent; color:var(--paper); box-shadow:inset 0 0 0 2px rgba(246,239,226,.35)}
+  .btn.sm{font-size:13px; padding:7px 11px}
+
+  /* ── Screens ────────────────────────────────────────────────────────────── */
+  #screens{position:fixed; inset:0; pointer-events:none}
+  .screen{position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+          pointer-events:auto; padding:24px; overflow:auto}
+  .screen.on{display:flex}
+  #title{background:linear-gradient(170deg,#ffd98a,#ff9a6c 46%,#e0525f 100%)}
+  #select{background:#221d2e}
+  .card{background:rgba(24,20,34,.86); backdrop-filter:blur(9px)}
+  .panel{max-width:620px; width:100%; text-align:center}
+
+  .logo{font-family:var(--head); text-transform:uppercase; line-height:.86; color:var(--ink);
+        font-size:clamp(56px,13vw,132px); letter-spacing:-.01em; transform:rotate(-2.2deg)}
+  .logo span{display:block; color:var(--paper); text-shadow:5px 5px 0 var(--ink)}
+  .tag{margin-top:22px; font-weight:700; font-size:14px; letter-spacing:.2em; text-transform:uppercase;
+       color:var(--ink); opacity:.78}
+  .stamp{display:inline-block; margin-top:26px; padding:7px 14px; border:3px solid var(--ink);
+         color:var(--ink); font-weight:800; font-size:11px; letter-spacing:.14em; transform:rotate(-3deg);
+         text-transform:uppercase; opacity:.66; border-radius:4px}
+  #titleBtns{margin-top:34px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap}
+
+  .h{font-family:var(--head); text-transform:uppercase; letter-spacing:.05em; font-size:clamp(30px,6vw,52px);
+     line-height:1}
+  .sub{margin-top:8px; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--dim)}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(114px,1fr)); gap:12px; margin-top:26px}
+  .tile{background:#2e2740; border:2px solid rgba(246,239,226,.13); border-radius:12px; padding:13px 9px;
+        cursor:pointer; text-align:center; transition:transform .08s, border-color .12s}
+  .tile:hover{transform:translateY(-3px); border-color:var(--accent)}
+  .tile .n{font-family:var(--head); font-size:27px; color:var(--accent); line-height:1}
+  .tile .t{font-size:10.5px; margin-top:5px; text-transform:uppercase; letter-spacing:.07em; color:var(--paper);
+        min-height:26px; display:flex; align-items:center; justify-content:center}
+  .tile .s{margin-top:6px; font-size:14px; letter-spacing:2px; color:var(--accent)}
+  .tile.locked{opacity:.34; cursor:not-allowed; background:#26212f}
+  .tile.locked:hover{transform:none; border-color:rgba(246,239,226,.13)}
+  .tile.locked .n, .tile.locked .s{color:var(--dim)}
+
+  #starRow{font-size:clamp(46px,10vw,76px); letter-spacing:10px; color:#4a4358; line-height:1; margin:14px 0 4px}
+  #starRow b{color:var(--accent); text-shadow:0 0 22px rgba(255,225,77,.5)}
+  .btnRow{margin-top:26px; display:flex; gap:11px; justify-content:center; flex-wrap:wrap}
+  .note{margin-top:16px; font-size:12px; color:var(--dim); letter-spacing:.05em}
+  .rebel{margin-top:20px; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim)}
+  #hint{position:fixed; left:50%; bottom:14%; transform:translateX(-50%); font-family:var(--head);
+        font-size:20px; letter-spacing:.14em; text-transform:uppercase; color:var(--paper);
+        text-shadow:0 3px 0 rgba(0,0,0,.5); pointer-events:none; opacity:0; transition:opacity .4s}
+  #hint.on{opacity:.95; animation:bob 1.5s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-7px)}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div class="row">
+    <div>
+      <div class="pill">
+        <div id="lvlName">—</div>
+        <div id="parLine">PAR 1</div>
+        <div id="tools"></div>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div class="pill"><div id="cams"></div></div>
+      <div id="btns" style="margin-top:10px; justify-content:flex-end">
+        <button class="btn sm ghost" id="bMute" title="Mute (M)">♪</button>
+        <button class="btn sm ghost" id="bRestart" title="Restart (R)">↺</button>
+        <button class="btn sm ghost" id="bMenu" title="Level select (Esc)">▤</button>
+      </div>
+    </div>
+  </div>
+  <div></div>
+</div>
+
+<div id="hint">← Drag back and release</div>
+
+<div id="screens">
+
+  <div class="screen on" id="title">
+    <div class="panel">
+      <div class="logo">Blind<span>Spot</span></div>
+      <div class="tag">Take the cameras down</div>
+      <div id="titleBtns">
+        <button class="btn y" id="bPlay">Play</button>
+        <button class="btn" id="bSelect">Levels</button>
+      </div>
+      <div class="stamp">Ministry of Appropriate Behaviour — Region 1: Porto&nbsp;Vela</div>
+    </div>
+  </div>
+
+  <div class="screen" id="select">
+    <div class="panel">
+      <div class="h">Porto Vela</div>
+      <div class="sub">Region 1 · Nico Aldama · The Chunk</div>
+      <div class="grid" id="tiles"></div>
+      <div class="btnRow">
+        <button class="btn ghost" id="bBack">Back</button>
+        <span class="note" id="totalStars"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen card" id="won">
+    <div class="panel">
+      <div id="starRow">★★★</div>
+      <div class="h" id="wonTitle">Level clear</div>
+      <div class="sub" id="wonSub">2 of 3 tools used · par 1</div>
+      <div class="btnRow">
+        <button class="btn y" id="bNext">Next</button>
+        <button class="btn" id="bReplay">Replay</button>
+        <button class="btn ghost" id="bSel2">Levels</button>
+      </div>
+      <div class="rebel" id="wonFlavour"></div>
+    </div>
+  </div>
+
+  <div class="screen card" id="lost">
+    <div class="panel">
+      <div class="h" style="color:var(--accent2)">Still watching</div>
+      <div class="sub" id="lostSub">Out of tools</div>
+      <div class="btnRow">
+        <button class="btn y" id="bAgain">Restart</button>
+        <button class="btn ghost" id="bSel3">Levels</button>
+      </div>
+      <div class="rebel">Nothing was lost. Nico has more rocks.</div>
+    </div>
+  </div>
+
+</div>
+
+<script src="vendor/matter.min.js"></script>
+<script>
+"use strict";
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLIND SPOT — 2D physics destruction puzzle.   Dirty Boy Devs, 2026.
+   The whole game lives in this file; GDD.md is the contract it is measured
+   against. Section order matches GDD §17.2 so the two stay navigable together.
+
+     1 CONFIG   2 DATA   3 RNG   4 AUDIO   5 SAVE
+     6 BUILD    7 SIM    8 RENDER  9 INPUT  10 SHELL
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const { Engine, World, Bodies, Body, Composite, Events, Vector } = Matter;
+
+/* ─── 1 · CONFIG ─────────────────────────────────────────────────────────────
+   Every tunable number lives here. Nothing below invents a constant. */
+const CONFIG = Object.freeze({
+  stepMs: 1000 / 60,
+  maxCatchUpMs: 200,           // tab-suspend clamp — AirportBaggageCrew\src\core\clock.js
+  gravity: 1.0,                // Matter scale; G_STEP below is the px/step² it works out to
+
+  levelW: 1620,
+  groundY: 720,
+  viewH: 840,                  // world px of height the view tries to show
+  viewBottom: 866,             // world y pinned to the bottom of the screen
+  zoomMin: 0.5, zoomMax: 1.35,
+
+  launchX: 170, launchY: 616,
+  maxPull: 132,                // px of drag before the sling is maxed out
+  power: 0.155,                // drag px → px/step of launch velocity
+  aimGrabR: 240,               // drag starting inside this radius aims; outside it pans
+
+  damageScale: 3.0,
+  damageGraceMs: 1000,         // GDD §7.3 — settling is not an attack
+  settleSpeed: 0.4,            // px/step below which a body counts as still
+  settleHoldMs: 600,
+  settleCapMs: 8000,           // a body rolling forever must not hang the level
+
+  fragMax: 120, fragLifeMs: 6000, fragFadeMs: 1000,
+  particleMax: 300,
+  shakeMax: 15, shakeDecay: 0.87,
+  hitStopMs: 45, hitStopMassMin: 2.5,
+
+  /* The camera's floor is 1, not 2, because at 2 a camera could ride a whole
+     tower to the ground and get up again on 2.8 hp — measured. A structure
+     coming down on top of a camera has to finish it, or "collapse the tower"
+     stops being one of the disable routes the design promises. */
+  camHp: 12, camFloor: 1, camW: 38, camH: 26,
+  camDetachImpulse: 4,         // knocked off its mounting, but not necessarily dead
+  trailStep: 3,
+});
+
+/* Matter integrates gravity as force/mass·δt², so a step adds exactly this many
+   px/step of downward velocity. The aim preview uses the same number, which is
+   what makes the preview honest rather than decorative (asserted in selfTest). */
+const G_STEP = CONFIG.gravity * 0.001 * (1000 / 60) ** 2;
+
+/* ─── 2 · DATA ───────────────────────────────────────────────────────────────
+   Content, not code. Adding a level is adding an array entry (GDD §8.4). */
+
+const MATERIALS = {
+  glass:    { hp: 14,  floor: 3,  density: 0.0006, rest: 0.05, fric: 0.35, fill: '#8fd8e8', edge: '#d8f6ff', alpha: 0.5,  sfx: 'GLASS_BREAK' },
+  wood:     { hp: 45,  floor: 8,  density: 0.0010, rest: 0.15, fric: 0.60, fill: '#d98f4a', edge: '#a5622c', alpha: 1,    sfx: 'WOOD_BREAK' },
+  concrete: { hp: 140, floor: 22, density: 0.0026, rest: 0.05, fric: 0.80, fill: '#9a9aa8', edge: '#6f6f80', alpha: 1,    sfx: 'CONCRETE_BREAK' },
+  steel:    { hp: 320, floor: 48, density: 0.0032, rest: 0.20, fric: 0.50, fill: '#5f7186', edge: '#3d4a5c', alpha: 1,    sfx: 'STEEL_HIT' },
+  barrel:   { hp: 40,  floor: 9,  density: 0.0011, rest: 0.25, fric: 0.35, fill: '#c96a3c', edge: '#8d4322', alpha: 1,    sfx: 'WOOD_BREAK' },
+  sign:     { hp: 25,  floor: 5,  density: 0.0008, rest: 0.10, fric: 0.50, fill: '#f6efe2', edge: '#221d2e', alpha: 1,    sfx: 'WOOD_BREAK' },
+  cam:      { hp: CONFIG.camHp, floor: CONFIG.camFloor, density: 0.0012, rest: 0.10, fric: 0.60, fill: '#3d4a5c', edge: '#222b38', alpha: 1, sfx: 'CAMERA_DEAD' },
+};
+
+const TOOLS = {
+  chunk: {
+    name: 'The Chunk', rebel: 'Nico Aldama',
+    blurb: 'A lump of broken pavement. Heavy, dumb, and completely reliable.',
+    radius: 15, sides: 7, density: 0.0026, rest: 0.25, fric: 0.55, frictionAir: 0,
+  },
+};
+
+const REBELS = {
+  nico: { name: 'Nico Aldama', region: 'Porto Vela', tool: 'chunk',
+          why: 'A camera fined his neighbour for sitting on the harbour wall.' },
+};
+
+/* Flavour printed under the stars. Not gameplay; it is the Ministry losing. */
+const FLAVOUR = [
+  'OmniPeek has filed for a replacement unit. And a consultancy fee.',
+  'The Ministry has classified this as "spontaneous structural enthusiasm".',
+  'Incident logged. Camera that would have logged it: unavailable.',
+  'A supervisor has been notified. The camera watching the supervisor is also down.',
+  'PSON coverage in this sector: revised downward.',
+  'OmniPeek quoted for repairs. The quote is larger than the street.',
+  'The footage of this has been reviewed by nobody, forever.',
+  'Region 1 remains under observation, in the sense that Nico is watching it.',
+];
+
+/* ==== LEVELS:BEGIN ====  (tools/check.mjs slices between these markers) */
+const LEVELS = [
+  { id:'r1-01', name:'Say Cheese', par:1, tools:3,
+    teach:'Drag back. Let go. That is the whole game.',
+    parts:[
+      ['wood', 1150, 650, 26, 140],
+      ['cam',  1150, 567],
+      ['sign',  660, 600, 'SMILE. YOUR SAFETY IS BEING RECORDED.'],
+    ]},
+
+  { id:'r1-02', name:'Timber', par:1, tools:3,
+    teach:'Hitting the camera works. Hitting its legs works better.',
+    parts:[
+      ['wood', 1200, 630, 28, 180],
+      ['wood', 1200, 450, 28, 180],
+      ['wood', 1200, 350, 130, 20],
+      ['cam',  1200, 327],
+      ['sign',  640, 590, 'PRIVACY IS VERY SUSPICIOUS'],
+    ]},
+
+  { id:'r1-03', name:'Double Vision', par:2, tools:3,
+    teach:'Two cameras. One structure. Do the arithmetic.',
+    parts:[
+      ['concrete', 1200, 620, 70, 200],
+      ['wood',     1200, 508, 300, 24],
+      ['cam',      1080, 483],
+      ['cam',      1320, 483],
+      ['sign',      640, 600, 'NOTHING TO HIDE? NOTHING TO WORRY ABOUT.'],
+    ]},
+
+  { id:'r1-04', name:'Behind Glass', par:1, tools:3,
+    teach:'Glass is not protection. Glass is a door with extra steps.',
+    parts:[
+      ['concrete', 1300, 625, 22, 190],
+      ['glass',    1120, 625, 16, 190],
+      ['wood',     1210, 520, 220, 20],
+      ['concrete', 1210, 685, 56, 70],
+      ['cam',      1210, 637],
+      ['sign',      640, 600, 'THIS AREA IS PROTECTED BY LOOKING AT IT'],
+    ]},
+
+  { id:'r1-05', name:'Domino Effect', par:1, tools:3,
+    teach:'One rock. Five pillars. Do not touch anything else.',
+    parts:[
+      ['wood',  900, 605, 24, 230],
+      ['wood',  980, 605, 24, 230],
+      ['wood', 1060, 605, 24, 230],
+      ['wood', 1140, 605, 24, 230],
+      ['wood', 1220, 605, 24, 230],
+      ['wood', 1340, 660, 24, 120],
+      ['cam',  1340, 587],
+      ['sign',  640, 600, 'REPORT UNUSUAL CALM'],
+    ]},
+
+  /* The slab sits on a BEAM whose ends stick out past the legs, because a target
+     tucked under an overhang cannot be hit at all: anything descending onto it
+     strikes the overhang first. The first build of this level put the slab
+     straight onto the legs and was unwinnable from any angle at any power —
+     150 scripted shots, 0 kills. The exposed beam end is the way in. */
+  { id:'r1-06', name:'Hard Hat Area', par:2, tools:4,
+    teach:'You will never break that slab. You can absolutely drop it.',
+    parts:[
+      ['wood',     1120, 625, 34, 190],
+      ['wood',     1300, 625, 34, 190],
+      ['wood',     1210, 519, 250, 22],
+      ['concrete', 1210, 483, 120, 50],
+      ['cam',      1210, 707],
+      ['barrel',    990, 694, 26],
+      ['sign',      640, 600, 'UNOBSERVED AREAS ARE BEING ADDRESSED'],
+    ]},
+
+  { id:'r1-07', name:'Overwatch', par:2, tools:4,
+    teach:'Steel does not care. Steel is standing on something that does.',
+    parts:[
+      ['wood',  1080, 615, 30, 210],
+      ['wood',  1320, 615, 30, 210],
+      ['steel', 1200, 497, 300, 26],
+      ['cam',   1120, 471],
+      ['cam',   1290, 471],
+      ['sign',   640, 600, 'YOUR COOPERATION HAS BEEN NOTED AND FILED'],
+    ]},
+
+  { id:'r1-08', name:'The Barrel Run', par:1, tools:3,
+    teach:'The rock is not the only thing in this level that can travel.',
+    parts:[
+      ['wood',   830, 605, 24, 230],
+      ['wood',   990, 605, 24, 230],
+      ['wood',   910, 481, 220, 18],
+      ['barrel', 860, 448, 24],
+      ['wood',  1300, 620, 26, 200],
+      ['wood',  1300, 511, 130, 18],
+      ['cam',   1300, 489],
+      ['sign',   560, 600, 'CITIZENVISION™ — BECAUSE SOMEONE SHOULD BE WATCHING'],
+    ]},
+
+  { id:'r1-09', name:'Neighbourhood Watch', par:3, tools:5,
+    teach:'Three of them. Five rocks. Two of those rocks are a rounding error.',
+    parts:[
+      ['wood',     1000, 655, 24, 130],
+      ['cam',      1000, 577],
+      ['glass',    1080, 660, 14, 120],
+      ['concrete', 1160, 665, 90, 110],
+      ['wood',     1160, 565, 22, 90],
+      ['cam',      1160, 507],
+      ['wood',     1330, 625, 26, 190],
+      ['wood',     1330, 521, 110, 18],
+      ['cam',      1330, 499],
+      ['sign',      620, 600, '47 CAMERAS SERVING THIS STREET. TARGET: 60.'],
+    ]},
+
+  { id:'r1-10', name:'The Eye of Porto Vela', par:3, tools:6,
+    teach:'Region finale. Everything Porto Vela taught you, standing in one place.',
+    parts:[
+      ['concrete', 1250, 690, 240, 60],
+      ['steel',    1180, 560, 26, 200],
+      ['steel',    1320, 560, 26, 200],
+      ['glass',    1250, 560, 110, 200],
+      ['wood',     1250, 449, 280, 22],
+      ['cam',      1170, 425],
+      ['cam',      1330, 425],
+      ['wood',     1250, 353, 30, 170],
+      ['wood',     1250, 258, 160, 20],
+      ['cam',      1210, 235],
+      ['cam',      1290, 235],
+      ['barrel',    990, 694, 26],
+      ['sign',      620, 560, 'THE EYE OF PORTO VELA — PUBLIC SAFETY OBSERVATION NETWORK'],
+    ]},
+];
+/* ==== LEVELS:END ==== */
+
+/* ─── 3 · RNG ────────────────────────────────────────────────────────────────
+   mulberry32 / Rng copied verbatim in shape and name from
+   AirportBaggageCrew\src\core\rng.js (itself from SomethingsDifferent, from
+   Chameleon) per Dev\INDEX.md. No gameplay system calls Math.random(): fragment
+   shapes, particle jitter and camera sweep phases all draw from a stream seeded
+   on the level id, so a level breaks the same way on every attempt. */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+class Rng {
+  constructor(seed, label='rng'){ this.seed=seed>>>0; this.label=label; this.draws=0; this._next=mulberry32(this.seed); }
+  reset(seed=this.seed){ this.seed=seed>>>0; this.draws=0; this._next=mulberry32(this.seed); return this; }
+  float(){ this.draws++; return this._next(); }
+  range(lo,hi){ return lo + this.float()*(hi-lo); }
+  int(lo,hi){ return lo + Math.floor(this.float()*(hi-lo+1)); }
+  chance(p){ return this.float() < p; }
+  pick(a){ return a[Math.floor(this.float()*a.length)]; }
+}
+/* FNV-1a, from SomethingsDifferent\somethingsdifferent.html:5563 `hashStr`. */
+function hashStr(s){ let h=0x811c9dc5; for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193);} return h>>>0; }
+
+/* ─── 4 · AUDIO ──────────────────────────────────────────────────────────────
+   WebAudio, synthesised, no files. `tone` / `makeNoise` / `CUES` keep the names
+   they have in SmallTownEmergencyServices\src\audio\audio.js — sixth adaptation
+   in this tree, copied rather than reinvented (Dev\INDEX.md).
+
+   Two rules, same as every other adaptation:
+     1. audio reads state and never writes it — the game is identical with the
+        whole layer dead, which is what happens when a browser refuses a context;
+     2. cues are a DATA TABLE keyed by event name, never a switch. A new sound is
+        a new row, and an event with no row is silent rather than fatal. */
+const AUDIO_KEY = 'blindspot.audio.v1';
+
+const CUES = {
+  LAUNCH:          { gap: 60,  parts:[[150,70,0.16,'sawtooth',0.16],[420,180,0.10,'triangle',0.10]] },
+  IMPACT:          { gap: 40,  parts:[[130,70,0.09,'triangle',0.16]] },
+  WOOD_BREAK:      { gap: 40,  parts:[[220,90,0.14,'square',0.16],[90,50,0.20,'sawtooth',0.12,0.02]], noise:[0.16,0.13,1500,2.2] },
+  GLASS_BREAK:     { gap: 40,  parts:[[2300,1500,0.10,'sine',0.09],[3100,2100,0.07,'sine',0.06,0.03]], noise:[0.22,0.30,4200,1.1] },
+  CONCRETE_BREAK:  { gap: 60,  parts:[[95,44,0.34,'sawtooth',0.24],[150,70,0.24,'triangle',0.14,0.02]], noise:[0.20,0.28,700,1.6] },
+  STEEL_HIT:       { gap: 70,  parts:[[880,760,0.30,'triangle',0.14],[1760,1500,0.22,'sine',0.07,0.01]] },
+  CAMERA_DEAD:     { gap: 30,  parts:[[880,880,0.09,'square',0.15],[660,660,0.09,'square',0.14,0.09],[330,140,0.34,'sawtooth',0.17,0.18]], noise:[0.10,0.16,3000,3.0,0.02] },
+  COLLAPSE:        { gap:200,  parts:[[70,36,0.85,'sawtooth',0.24],[110,55,0.60,'triangle',0.13,0.04]] },
+  LEVEL_COMPLETE:  { gap:400,  parts:[[523,523,0.18,'sine',0.20],[659,659,0.18,'sine',0.19,0.13],[784,784,0.42,'sine',0.20,0.26]] },
+  LEVEL_FAILED:    { gap:400,  parts:[[330,196,0.42,'sine',0.20],[165,110,0.55,'triangle',0.13,0.05]] },
+  STAR:            { gap: 20,  parts:[[880,1320,0.20,'sine',0.17]] },
+  UI:              { gap: 30,  parts:[[620,780,0.06,'square',0.09]] },
+};
+
+const Audio_ = {
+  ctx: null, bus: null, noiseBuf: null, muted: false, last: {},
+  init(){
+    try { this.muted = !!JSON.parse(localStorage.getItem(AUDIO_KEY) || '{}').muted; } catch (e) { /* no storage */ }
+  },
+  /* Armed on the first real gesture — a context created before one is suspended,
+     and a suspended clock never ends a voice (Dev\INDEX.md, m18 A9h). */
+  arm(){
+    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try {
+      this.ctx = new AC();
+      this.bus = this.ctx.createGain();
+      this.bus.gain.value = 0.8;
+      this.bus.connect(this.ctx.destination);
+      this.noiseBuf = makeNoise(this.ctx);
+    } catch (e) { this.ctx = null; }
+  },
+  setMuted(m){
+    this.muted = m;
+    try { localStorage.setItem(AUDIO_KEY, JSON.stringify({ muted: m })); } catch (e) { /* no storage */ }
+    if (this.bus) this.bus.gain.value = m ? 0 : 0.8;
+  },
+  play(name, gain = 1){
+    if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
+    const cue = CUES[name];
+    if (!cue) return;                                  // no row → silent, never fatal
+    const now = performance.now();
+    if (now - (this.last[name] || -1e9) < cue.gap) return;
+    this.last[name] = now;
+    for (const p of cue.parts) tone(this.ctx, this.bus, p[4] * gain, p[0], p[1], p[2], p[3], p[5] || 0);
+    if (cue.noise) noise(this.ctx, this.bus, this.noiseBuf, cue.noise[0] * gain, cue.noise[1], cue.noise[2], cue.noise[3], cue.noise[4] || 0);
+  },
+};
+
+function makeNoise(ctx, seed = 0x5EA5E7){
+  const n = Math.floor(ctx.sampleRate * 2);
+  const b = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = b.getChannelData(0);
+  const rnd = mulberry32(seed);
+  let brown = 0;
+  for (let i = 0; i < n; i++){ const w = rnd()*2-1; brown = (brown + 0.02*w)/1.02; d[i] = w*0.65 + brown*3.2; }
+  return b;
+}
+
+function tone(ctx, busNode, vol, f0, f1, dur, type, delay){
+  if (!ctx || !busNode || !(vol > 0.0004)) return;
+  const t = ctx.currentTime + (delay || 0);
+  const o = ctx.createOscillator();
+  o.type = type || 'sine';
+  o.frequency.setValueAtTime(f0, t);
+  if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+  const e = ctx.createGain();
+  e.gain.setValueAtTime(0.0001, t);
+  e.gain.exponentialRampToValueAtTime(vol, t + 0.004);
+  e.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(e); e.connect(busNode);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+
+/* Filtered noise burst — what makes a shatter sound like glass rather than a beep. */
+function noise(ctx, busNode, buf, vol, dur, freq, q, delay){
+  if (!ctx || !busNode || !buf || !(vol > 0.0004)) return;
+  const t = ctx.currentTime + (delay || 0);
+  const s = ctx.createBufferSource(); s.buffer = buf;
+  const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+  const e = ctx.createGain();
+  e.gain.setValueAtTime(0.0001, t);
+  e.gain.exponentialRampToValueAtTime(vol, t + 0.005);
+  e.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f); f.connect(e); e.connect(busNode);
+  s.start(t); s.stop(t + dur + 0.05);
+}
+
+/* ─── 5 · SAVE ───────────────────────────────────────────────────────────────
+   Versioned, probed, and degrading to no-save rather than throwing — the shape
+   from SmallTownEmergencyServices\src\core\save.js. A locked-down profile or a
+   headless harness must be able to play the game, just not remember it. */
+const SAVE_KEY = 'blindspot.save.v1';
+
+const Save = {
+  data: { v: 1, stars: {}, unlocked: 1 },
+  ok: false,
+  load(){
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      this.ok = true;
+      if (!raw) return;
+      const p = JSON.parse(raw);
+      if (!p || p.v !== 1) return;
+      this.data.stars = (p.stars && typeof p.stars === 'object') ? p.stars : {};
+      this.data.unlocked = Math.max(1, Math.min(LEVELS.length, p.unlocked | 0 || 1));
+    } catch (e) { this.ok = false; }
+  },
+  flush(){ if (!this.ok) return; try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.data)); } catch (e) { this.ok = false; } },
+  starsFor(id){ return this.data.stars[id] | 0; },
+  record(id, stars, index){
+    if (stars > this.starsFor(id)) this.data.stars[id] = stars;
+    if (index + 2 > this.data.unlocked) this.data.unlocked = Math.min(LEVELS.length, index + 2);
+    this.flush();
+  },
+  total(){ return LEVELS.reduce((n, l) => n + this.starsFor(l.id), 0); },
+};
+
+/* ─── 6 · BUILD ──────────────────────────────────────────────────────────────
+   Level data → Matter bodies. Pure: same data in, same world out. */
+
+let engine, world;
+
+function makeEngine(){
+  engine = Engine.create({ enableSleeping: true });
+  engine.gravity.y = CONFIG.gravity;
+  engine.positionIterations = 8;
+  engine.velocityIterations = 6;
+  world = engine.world;
+  Events.on(engine, 'collisionStart', onCollisions);
+}
+
+function partBody(kind, x, y, w, h, angDeg){
+  const m = MATERIALS[kind];
+  const b = Bodies.rectangle(x, y, w, h, {
+    density: m.density, restitution: m.rest, friction: m.fric, frictionStatic: 0.9,
+    slop: 0.02, angle: (angDeg || 0) * Math.PI / 180,
+  });
+  b._kind = kind; b._mat = m; b._hp = m.hp; b._maxHp = m.hp; b._w = w; b._h = h;
+  return b;
+}
+
+function buildLevel(index){
+  const def = LEVELS[index];
+  const rng = new Rng(hashStr(def.id), def.id);
+
+  if (engine) { Events.off(engine, 'collisionStart', onCollisions); Engine.clear(engine); }
+  makeEngine();
+
+  const S = {
+    def, index, rng,
+    parts: [], cams: [], signs: [], frags: [], particles: [],
+    proj: null, trail: [], lastTrail: [],
+    toolsLeft: def.tools, toolsUsed: 0,
+    phase: 'aim',                 // aim · live · won · lost
+    headless: false,              // set by the self-tests: no DOM, no save, no cards
+    elapsed: 0, sinceLaunch: 0, stillMs: 0, trailTick: 0,
+    shake: 0, hitStop: 0, slowmo: 0,
+    camX: CONFIG.launchX + 420, camXTarget: CONFIG.launchX + 420, pan: 0,
+    aiming: false, dragFrom: null, dragTo: null, panFrom: null,
+  };
+
+  /* Ground and the two walls that keep a bouncing rock inside the level. */
+  const ground = Bodies.rectangle(CONFIG.levelW / 2, CONFIG.groundY + 200, CONFIG.levelW + 800, 400,
+    { isStatic: true, friction: 0.9, restitution: 0.02 });
+  ground._kind = 'ground';
+  const lw = Bodies.rectangle(-60, 200, 120, 1600, { isStatic: true, friction: 0.4 });
+  const rw = Bodies.rectangle(CONFIG.levelW + 60, 200, 120, 1600, { isStatic: true, friction: 0.4 });
+  lw._kind = rw._kind = 'wall';
+  Composite.add(world, [ground, lw, rw]);
+  S.ground = ground;
+
+  /* Parts first, cameras second — a camera needs to find the body under it. */
+  const solid = [];
+  for (const p of def.parts){
+    const kind = p[0];
+    if (kind === 'cam' || kind === 'sign') continue;
+    let b;
+    if (kind === 'barrel'){
+      const r = p[3] || 26, m = MATERIALS.barrel;
+      b = Bodies.circle(p[1], p[2], r, { density: m.density, restitution: m.rest, friction: m.fric, slop: 0.02 });
+      b._kind = 'barrel'; b._mat = m; b._hp = m.hp; b._maxHp = m.hp; b._w = r * 2; b._h = r * 2; b._r = r;
+    } else {
+      b = partBody(kind, p[1], p[2], p[3], p[4], p[5]);
+    }
+    b._loose = (kind === 'barrel');
+    b._x0 = b.position.x; b._y0 = b.position.y;   // where it was built, for progress scoring
+    Composite.add(world, b);
+    solid.push(b); S.parts.push(b);
+  }
+
+  for (const p of def.parts){
+    if (p[0] === 'sign'){
+      const text = p[3] || '';
+      const w = Math.max(150, text.length * 8.6 + 34);
+      const b = partBody('sign', p[1], p[2], w, 46);
+      Body.setStatic(b, true);                 // a billboard never wobbles; it still breaks
+      b._text = text; b._sign = true;
+      Composite.add(world, b);
+      S.signs.push(b); S.parts.push(b);
+    }
+  }
+
+  /* Cameras. Each is a real body, but while mounted its transform is driven by
+     whatever it is bolted to (GDD §7.5). That is a bracket, not a balancing act:
+     it cannot wobble off during settling, and every disable route still works —
+     a hit, falling debris, the mount breaking, or being knocked off the bracket. */
+  let group = 0;
+  for (const p of def.parts){
+    if (p[0] !== 'cam') continue;
+    const m = MATERIALS.cam;
+    const c = Bodies.rectangle(p[1], p[2], CONFIG.camW, CONFIG.camH, {
+      density: m.density, restitution: m.rest, friction: m.fric, slop: 0.02,
+    });
+    c._kind = 'cam'; c._mat = m; c._hp = m.hp; c._maxHp = m.hp;
+    c._w = CONFIG.camW; c._h = CONFIG.camH;
+    c._alive = true; c._detached = false;
+    c._face = (p[3] || 0) * Math.PI / 180;
+    c._phase = rng.range(0, Math.PI * 2);      // so a bank of them does not sweep in unison
+    c._sweep = 0; c._look = 0;
+
+    const mount = findMount(solid, p[1], p[2]);
+    if (mount){
+      /* A negative collision group means "these bodies never touch each other".
+         Two cameras on ONE deck must JOIN the deck's existing group rather than
+         claim a new one — overwriting it would silently re-enable contact between
+         the deck and the first camera, and a bracket-mounted camera grinding on
+         its own mount is exactly the jitter the bracket exists to prevent. */
+      if (mount.collisionFilter.group >= 0){ group -= 1; mount.collisionFilter.group = group; }
+      c.collisionFilter.group = mount.collisionFilter.group;
+      c._mount = mount;
+      c._off = { x: c.position.x - mount.position.x, y: c.position.y - mount.position.y };
+      c._mountAng0 = mount.angle; c._ang0 = c.angle;
+    }
+    Composite.add(world, c);
+    S.cams.push(c);
+  }
+
+  S.aliveCams = S.cams.length;
+  return S;
+}
+
+/* The body a camera is sitting on: nearest solid whose top edge is just below it
+   and whose horizontal span contains it. */
+function findMount(solid, x, y){
+  const bottom = y + CONFIG.camH / 2;
+  let best = null, bestGap = 26;
+  for (const b of solid){
+    if (b.bounds.min.x - 6 > x || b.bounds.max.x + 6 < x) continue;
+    const gap = b.bounds.min.y - bottom;
+    if (gap >= -4 && gap < bestGap){ bestGap = gap; best = b; }
+  }
+  return best;
+}
+
+/* ─── 7 · SIM ────────────────────────────────────────────────────────────────
+   Fixed step. Nothing mutates the world inside a collision handler — breaks are
+   queued and applied after Engine.update, or the solver walks a list it is
+   halfway through iterating. */
+
+let S = null;
+const breakQueue = [];
+
+function reducedMass(a, b){
+  const ma = a.isStatic ? Infinity : a.mass;
+  const mb = b.isStatic ? Infinity : b.mass;
+  if (!isFinite(ma) && !isFinite(mb)) return 0;
+  if (!isFinite(ma)) return mb;
+  if (!isFinite(mb)) return ma;
+  return (ma * mb) / (ma + mb);
+}
+
+function onCollisions(ev){
+  if (!S || S.elapsed < CONFIG.damageGraceMs) return;   // settling is not an attack
+  for (const pair of ev.pairs){
+    const a = pair.bodyA, b = pair.bodyB;
+    const n = pair.collision.normal;
+    /* Velocities snapshotted before Engine.update, so this reads the approach
+       speed rather than whatever the solver has already done about it. */
+    const rvx = (a._pvx || 0) - (b._pvx || 0);
+    const rvy = (a._pvy || 0) - (b._pvy || 0);
+    const vn = Math.abs(rvx * n.x + rvy * n.y);
+    const j = vn * reducedMass(a, b);
+    if (j <= 0.4) continue;
+
+    S.shake = Math.min(CONFIG.shakeMax, S.shake + j * 0.10);
+    applyDamage(a, j, b);
+    applyDamage(b, j, a);
+  }
+}
+
+function applyDamage(body, j, other){
+  if (!body._mat || body._frag) return;                 // ground, walls and debris are inert
+  const dmg = Math.max(0, j - body._mat.floor) * CONFIG.damageScale;
+
+  if (body._kind === 'cam'){
+    if (!body._alive) return;
+    if (!body._detached && j > CONFIG.camDetachImpulse) detachCam(body);
+    if (dmg <= 0){ Audio_.play('IMPACT', 0.4); return; }
+    body._hp -= dmg;
+    if (body._hp <= 0) killCam(body);
+    return;
+  }
+
+  if (dmg <= 0){
+    /* Below the floor: a noise, a scuff, and nothing else. This is the feedback
+       that teaches "steel will never work" without a word of text. */
+    Audio_.play(body._kind === 'steel' ? 'STEEL_HIT' : 'IMPACT', Math.min(1, j / 40));
+    if (body._kind === 'steel') spark(contactPoint(body, other), 4);
+    return;
+  }
+  body._hp -= dmg;
+  if (body._hp <= 0 && !body._dead){ body._dead = true; breakQueue.push(body); }
+}
+
+function contactPoint(a, b){
+  return { x: (a.position.x + b.position.x) / 2, y: (a.position.y + b.position.y) / 2 };
+}
+
+function detachCam(c){
+  if (c._detached) return;
+  c._detached = true;
+  if (c._mount) c.collisionFilter.group = 0;
+  c._mount = null;
+  Body.setStatic(c, false);
+}
+
+function killCam(c){
+  if (!c._alive) return;
+  c._alive = false;
+  S.aliveCams--;
+  detachCam(c);
+  Audio_.play('CAMERA_DEAD');
+  spark(c.position, 16);
+  burst(c.position, 10, '#3d4a5c');
+  S.shake = Math.min(CONFIG.shakeMax, S.shake + 5);
+  syncCamPips();
+  if (S.aliveCams === 0){ S.slowmo = 620; win(); }
+}
+
+/* Break: remove the body, replace it with inert fragments carrying its velocity. */
+function breakBody(b){
+  const m = b._mat;
+  Composite.remove(world, b);
+  const i = S.parts.indexOf(b); if (i >= 0) S.parts.splice(i, 1);
+
+  Audio_.play(m.sfx, Math.min(1, 0.5 + (b._w * b._h) / 9000));
+  if (b._w * b._h > 5000) Audio_.play('COLLAPSE', 0.8);
+  if (b.mass > CONFIG.hitStopMassMin) S.hitStop = CONFIG.hitStopMs;
+  S.shake = Math.min(CONFIG.shakeMax, S.shake + 3 + b.mass * 0.3);
+
+  /* Anything bolted to it is now falling. */
+  for (const c of S.cams) if (c._mount === b) detachCam(c);
+
+  const n = S.rng.int(3, 5);
+  for (let k = 0; k < n; k++){
+    const fw = Math.max(7, b._w / (b._w > b._h ? n : 1.7)) * S.rng.range(0.55, 0.95);
+    const fh = Math.max(7, b._h / (b._h > b._w ? n : 1.7)) * S.rng.range(0.55, 0.95);
+    const px = b.position.x + S.rng.range(-b._w / 3, b._w / 3);
+    const py = b.position.y + S.rng.range(-b._h / 3, b._h / 3);
+    const f = Bodies.rectangle(px, py, fw, fh, {
+      density: m.density, restitution: 0.25, friction: 0.7, angle: S.rng.range(0, 6.28),
+    });
+    f._kind = b._kind; f._mat = m; f._frag = true; f._w = fw; f._h = fh;
+    f._born = S.elapsed; f._alpha = 1;
+    Body.setVelocity(f, { x: b.velocity.x + S.rng.range(-2.2, 2.2), y: b.velocity.y + S.rng.range(-2.6, 0.6) });
+    Body.setAngularVelocity(f, S.rng.range(-0.22, 0.22));
+    Composite.add(world, f);
+    S.frags.push(f);
+  }
+  burst(b.position, 12, m.fill);
+  cullFragments();
+}
+
+function cullFragments(){
+  while (S.frags.length > CONFIG.fragMax){
+    const old = S.frags.shift();
+    Composite.remove(world, old);
+  }
+}
+
+/* Particles are pure decoration and never touch the simulation. */
+function burst(p, n, colour){
+  for (let i = 0; i < n && S.particles.length < CONFIG.particleMax; i++){
+    S.particles.push({ x: p.x, y: p.y, vx: S.rng.range(-3.4, 3.4), vy: S.rng.range(-4.4, 1.2),
+      life: 0, max: S.rng.range(380, 900), r: S.rng.range(1.6, 4.4), c: colour, g: 0.16 });
+  }
+}
+function spark(p, n){
+  for (let i = 0; i < n && S.particles.length < CONFIG.particleMax; i++){
+    S.particles.push({ x: p.x, y: p.y, vx: S.rng.range(-5, 5), vy: S.rng.range(-5, 1.5),
+      life: 0, max: S.rng.range(160, 420), r: S.rng.range(1, 2.4), c: '#ffe14d', g: 0.1 });
+  }
+}
+
+function launch(vx, vy){
+  const T = TOOLS.chunk;
+  const b = Bodies.polygon(CONFIG.launchX, CONFIG.launchY, T.sides, T.radius, {
+    density: T.density, restitution: T.rest, friction: T.fric, frictionAir: T.frictionAir, slop: 0.02,
+  });
+  b._kind = 'chunk'; b._mat = null; b._w = T.radius * 2; b._h = T.radius * 2;
+  Composite.add(world, b);
+  Body.setVelocity(b, { x: vx, y: vy });
+  S.proj = b;
+  S.lastTrail = S.trail; S.trail = [];
+  S.toolsLeft--; S.toolsUsed++;
+  S.phase = 'live'; S.sinceLaunch = 0; S.stillMs = 0; S.trailTick = 0;
+  if (S.headless) return;
+  Audio_.play('LAUNCH');
+  syncTools();
+  hideHint();
+}
+
+/* Predicted flight, computed with the same per-step gravity the solver applies —
+   which is why the dotted arc is a promise and not a decoration. */
+function predict(vx, vy, steps){
+  const pts = [];
+  let x = CONFIG.launchX, y = CONFIG.launchY, ux = vx, uy = vy;
+  for (let i = 0; i < steps; i++){
+    uy += G_STEP; x += ux; y += uy;
+    if (y > CONFIG.groundY) break;
+    pts.push({ x, y });
+  }
+  return pts;
+}
+
+function step(dt){
+  S.elapsed += dt;
+
+  /* Snapshot velocities BEFORE the solver runs — the damage model reads approach
+     speed, and after solveVelocity there is no approach speed left to read. */
+  for (const b of Composite.allBodies(world)){ b._pvx = b.velocity.x; b._pvy = b.velocity.y; }
+
+  Engine.update(engine, dt);
+
+  while (breakQueue.length) breakBody(breakQueue.pop());
+
+  /* Mounted cameras ride their bracket. */
+  for (const c of S.cams){
+    if (!c._mount || c._detached) continue;
+    const m = c._mount;
+    const da = m.angle - c._mountAng0;
+    const cs = Math.cos(da), sn = Math.sin(da);
+    const nx = m.position.x + c._off.x * cs - c._off.y * sn;
+    const ny = m.position.y + c._off.x * sn + c._off.y * cs;
+    Body.setVelocity(c, { x: nx - c.position.x, y: ny - c.position.y });
+    Body.setPosition(c, { x: nx, y: ny });
+    Body.setAngle(c, c._ang0 + da);
+  }
+
+  /* Sweep, and look at whoever is winding up a rock. */
+  for (const c of S.cams){
+    if (!c._alive) continue;
+    c._phase += dt * 0.0011;
+    c._sweep = Math.sin(c._phase) * 0.34;
+    const want = S.aiming ? 1 : 0;
+    c._look += (want - c._look) * 0.08;
+  }
+
+  /* Fragments age out. */
+  for (let i = S.frags.length - 1; i >= 0; i--){
+    const f = S.frags[i];
+    const age = S.elapsed - f._born;
+    if (age > CONFIG.fragLifeMs + CONFIG.fragFadeMs){
+      Composite.remove(world, f); S.frags.splice(i, 1);
+    } else if (age > CONFIG.fragLifeMs){
+      f._alpha = 1 - (age - CONFIG.fragLifeMs) / CONFIG.fragFadeMs;
+    }
+  }
+
+  /* Particles. */
+  for (let i = S.particles.length - 1; i >= 0; i--){
+    const p = S.particles[i];
+    p.life += dt;
+    if (p.life > p.max){ S.particles.splice(i, 1); continue; }
+    p.vy += p.g; p.x += p.vx; p.y += p.vy;
+    if (p.y > CONFIG.groundY){ p.y = CONFIG.groundY; p.vy *= -0.35; p.vx *= 0.7; }
+  }
+
+  S.shake *= CONFIG.shakeDecay;
+  if (S.slowmo > 0) S.slowmo -= dt;
+
+  if (S.phase !== 'live') return;
+  S.sinceLaunch += dt;
+
+  if (S.proj){
+    if (++S.trailTick % CONFIG.trailStep === 0) S.trail.push({ x: S.proj.position.x, y: S.proj.position.y });
+    S.camXTarget = S.proj.position.x + S.proj.velocity.x * 8;
+  }
+
+  /* Settle: everything asleep or crawling, held, or the hard cap (GDD §7.6). */
+  let maxV = 0;
+  for (const b of Composite.allBodies(world)){
+    if (b.isStatic || b.isSleeping) continue;
+    const v = Math.hypot(b.velocity.x, b.velocity.y);
+    if (v > maxV) maxV = v;
+  }
+  if (maxV < CONFIG.settleSpeed) S.stillMs += dt; else S.stillMs = 0;
+
+  if (S.stillMs >= CONFIG.settleHoldMs || S.sinceLaunch >= CONFIG.settleCapMs) settled();
+}
+
+function settled(){
+  if (S.aliveCams === 0){ win(); return; }
+  if (S.proj){ Composite.remove(world, S.proj); S.proj = null; }
+  if (S.toolsLeft > 0){
+    S.phase = 'aim';
+    S.camXTarget = CONFIG.launchX + 420;
+  } else {
+    S.phase = 'lost';
+    if (S.headless) return;
+    Audio_.play('LEVEL_FAILED');
+    showLost();
+  }
+}
+
+function starsFor(used, par){ return used <= par ? 3 : used === par + 1 ? 2 : 1; }
+
+function win(){
+  if (S.phase === 'won') return;
+  S.phase = 'won';
+  if (S.headless) return;
+  const stars = starsFor(S.toolsUsed, S.def.par);
+  Save.record(S.def.id, stars, S.index);
+  Audio_.play('LEVEL_COMPLETE');
+  setTimeout(() => showWon(stars), 900);
+}
+
+/* ─── 8 · RENDER ─────────────────────────────────────────────────────────────
+   Everything is drawn procedurally. No image assets, so the game stays one file
+   plus one library, and the art direction lives in code where it can be tuned. */
+
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+let CW = 0, CH = 0, DPR = 1, zoom = 1;
+
+function resize(){
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  CW = cv.clientWidth; CH = cv.clientHeight;
+  cv.width = Math.floor(CW * DPR); cv.height = Math.floor(CH * DPR);
+  zoom = Math.max(CONFIG.zoomMin, Math.min(CONFIG.zoomMax, CH / CONFIG.viewH));
+}
+window.addEventListener('resize', resize);
+
+function halfViewW(){ return CW / zoom / 2; }
+
+/* The ground is pinned near the bottom of the screen whatever the zoom clamp
+   does, so a very tall or very short window still shows a level rather than a
+   view of the sky. ONE function, read by both the forward and the inverse
+   transform — the two cannot drift apart, which is how a click stops landing
+   where the player pointed. */
+function viewOffsetY(){ return CH / zoom - CONFIG.viewBottom; }
+
+function worldFromScreen(sx, sy){
+  return { x: S.camX - halfViewW() + sx / zoom, y: sy / zoom - viewOffsetY() };
+}
+
+/* Shake draws from its own stream. The simulation's Rng must not be advanced by
+   the renderer, or "the same level breaks the same way" stops being true the
+   moment the frame rate changes (GDD §17.3). */
+const shakeRng = new Rng(0x5EED, 'shake');
+
+/* One transform, set once a frame; every draw below is in world pixels. */
+function applyCamera(){
+  const hw = halfViewW();
+  const jx = (shakeRng.float() - 0.5) * S.shake, jy = (shakeRng.float() - 0.5) * S.shake;
+  const oy = viewOffsetY();
+  ctx.setTransform(zoom * DPR, 0, 0, zoom * DPR, (-(S.camX - hw) * zoom + jx) * DPR, (oy * zoom + jy) * DPR);
+}
+
+function draw(){
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, CW, CH);
+  if (!S) return;
+
+  drawSky();
+  applyCamera();
+  drawBack();
+  drawGround();
+
+  for (const b of S.parts) drawPart(b, 1);
+  for (const f of S.frags) drawPart(f, f._alpha);
+  for (const c of S.cams) drawCam(c);
+  drawLauncher();
+  if (S.proj) drawChunk(S.proj);
+
+  drawTrail(S.lastTrail, 'rgba(246,239,226,0.18)');
+  drawTrail(S.trail, 'rgba(255,225,77,0.5)');
+  if (S.aiming) drawAim();
+  drawParticles();
+
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+
+function drawSky(){
+  const g = ctx.createLinearGradient(0, 0, 0, CH);
+  g.addColorStop(0, '#ffd98a'); g.addColorStop(0.52, '#ff9a6c'); g.addColorStop(1, '#e0525f');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
+}
+
+/* Porto Vela, built once and blitted every frame. Rolling the skyline per frame
+   allocated an Rng and 30 buildings sixty times a second to draw the same picture,
+   and a town that re-rolls itself is a town that shimmers. */
+const TOWN = (() => {
+  const r = new Rng(9001, 'town'), out = [];
+  for (let i = 0; i < 22; i++){
+    const w = r.range(66, 128);
+    out.push({ w, h: r.range(70, 210), roof: r.float(), win: r.int(2, 4), tint: r.range(0, 1) });
+  }
+  return out;
+})();
+
+const PALMS = (() => {
+  const r = new Rng(4242, 'palms'), out = [];
+  for (let i = 0; i < 9; i++) out.push({ x: r.range(-200, 2000), h: r.range(70, 130), lean: r.range(-0.2, 0.2), n: r.int(5, 7) });
+  return out;
+})();
+
+function drawBack(){
+  const px = S.camX;
+  ctx.save();
+
+  /* Sun, with a halo that gives the sky somewhere to be brightest. */
+  const sx = 340 - px * 0.03;
+  const halo = ctx.createRadialGradient(sx, 130, 40, sx, 130, 260);
+  halo.addColorStop(0, 'rgba(255,247,222,0.55)'); halo.addColorStop(1, 'rgba(255,247,222,0)');
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(sx, 130, 260, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = '#fff6dd'; ctx.beginPath(); ctx.arc(sx, 130, 74, 0, 6.2832); ctx.fill();
+
+  /* Headlands — far, hazy, low contrast on purpose. */
+  ctx.fillStyle = '#e5806a';
+  hill(-500 - px * 0.06, 520, 1300, 250);
+  hill(700 - px * 0.06, 520, 1500, 300);
+  ctx.fillStyle = '#d16a64';
+  hill(-100 - px * 0.12, 556, 1000, 170);
+  hill(900 - px * 0.12, 556, 1200, 210);
+
+  /* Sea. */
+  ctx.fillStyle = '#5b87ab'; ctx.fillRect(-900, 556, 4200, 70);
+  ctx.fillStyle = '#7ba4c4'; ctx.fillRect(-900, 556, 4200, 5);
+  ctx.fillStyle = 'rgba(255,247,222,0.22)';
+  for (let i = 0; i < 40; i++){
+    const x = -800 - (px * 0.3) % 150 + i * 150 + (i % 3) * 40;
+    ctx.fillRect(x, 572 + (i % 5) * 9, 54, 3);
+  }
+
+  /* The town. Chunky, varied, with lit windows — this is a place with people in
+     it, and they are the reason any of this matters. */
+  const ox = -420 - px * 0.28;
+  let x = ox;
+  for (const b of TOWN){
+    const top = 626 - b.h;
+    ctx.fillStyle = b.tint > 0.5 ? '#9e3f57' : '#8b3550';
+    ctx.fillRect(x, top, b.w, b.h + 30);
+    if (b.roof > 0.62){                                  // pitched
+      ctx.beginPath(); ctx.moveTo(x - 9, top); ctx.lineTo(x + b.w / 2, top - 30); ctx.lineTo(x + b.w + 9, top); ctx.closePath(); ctx.fill();
+    } else if (b.roof > 0.34){                           // a little tower
+      ctx.fillRect(x + b.w * 0.34, top - 34, b.w * 0.32, 34);
+      ctx.beginPath(); ctx.arc(x + b.w * 0.5, top - 34, b.w * 0.16, Math.PI, 0); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(255,225,150,0.5)';
+    for (let c = 0; c < b.win; c++)
+      for (let rw = 0; rw < Math.floor(b.h / 46); rw++)
+        if ((c + rw) % 3) ctx.fillRect(x + 12 + c * ((b.w - 18) / b.win), top + 16 + rw * 46, 11, 15);
+    x += b.w + 16;
+  }
+
+  /* Palms along the promenade — silhouette variety, and the only curves in a
+     level otherwise made entirely of boxes. */
+  ctx.strokeStyle = '#6f2b46'; ctx.fillStyle = '#6f2b46'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  for (const p of PALMS){
+    const bx = p.x - px * 0.42;
+    ctx.beginPath(); ctx.moveTo(bx, 650);
+    ctx.quadraticCurveTo(bx + p.lean * 60, 650 - p.h * 0.6, bx + p.lean * 130, 650 - p.h); ctx.stroke();
+    const tx = bx + p.lean * 130, ty = 650 - p.h;
+    for (let f = 0; f < p.n; f++){
+      const a = Math.PI + (f / (p.n - 1)) * Math.PI;
+      ctx.beginPath(); ctx.moveTo(tx, ty);
+      ctx.quadraticCurveTo(tx + Math.cos(a) * 26, ty + Math.sin(a) * 20 - 8, tx + Math.cos(a) * 46, ty + Math.sin(a) * 30 + 12);
+      ctx.stroke();
+    }
+  }
+  ctx.lineCap = 'butt';
+
+  /* Promenade wall, right behind the play area. */
+  ctx.fillStyle = '#7a3a4f'; ctx.fillRect(-600, 648, 4000, CONFIG.groundY - 648);
+  ctx.fillStyle = '#8c465c'; ctx.fillRect(-600, 648, 4000, 7);
+
+  /* Atmospheric haze over everything behind the play plane. Without it the town
+     competes with the structures for the eye, and R4 — "name every target and
+     material from a still frame" — stops being true the moment a level is built
+     in front of a skyline. Knocking the background back is cheaper and reads
+     better than restyling every object in front of it. */
+  const haze = ctx.createLinearGradient(0, 120, 0, CONFIG.groundY);
+  haze.addColorStop(0, 'rgba(255,190,140,0.10)');
+  haze.addColorStop(0.62, 'rgba(255,175,132,0.34)');
+  haze.addColorStop(1, 'rgba(255,160,120,0.42)');
+  ctx.fillStyle = haze; ctx.fillRect(-900, 120, 4200, CONFIG.groundY - 120);
+  ctx.restore();
+}
+
+function hill(x, y, w, h){
+  ctx.beginPath(); ctx.moveTo(x, y + h);
+  ctx.quadraticCurveTo(x + w * 0.5, y - h * 0.5, x + w, y + h);
+  ctx.closePath(); ctx.fill();
+}
+
+/* Below the ground line is a cutaway, not a void — soil, and the Ministry's own
+   conduit running the length of the level. It fills the bottom band with
+   something worth looking at, and it is the joke told quietly: the surveillance
+   goes all the way down. */
+function drawGround(){
+  const W = CONFIG.levelW + 1400, X = -700, g = CONFIG.groundY;
+  ctx.fillStyle = '#3a3450'; ctx.fillRect(X, g, W, 400);
+  ctx.fillStyle = '#4a4262'; ctx.fillRect(X, g, W, 13);
+  ctx.fillStyle = '#57507a'; ctx.fillRect(X, g, W, 4);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.16)';
+  for (let x = X; x < X + W; x += 52) ctx.fillRect(x + ((x / 52) % 3) * 7, g + 30 + ((x / 52) % 4) * 9, 20, 5);
+
+  ctx.fillStyle = '#2b2740'; ctx.fillRect(X, g + 88, W, 34);
+  ctx.strokeStyle = '#ffe14d'; ctx.lineWidth = 3; ctx.globalAlpha = 0.5;
+  ctx.beginPath();
+  for (let x = X; x < X + W; x += 30){ ctx.moveTo(x, g + 105); ctx.lineTo(x + 18, g + 105); }
+  ctx.stroke(); ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(246,239,226,0.30)';
+  ctx.font = '700 13px "Segoe UI", system-ui, sans-serif';
+  for (let x = -300; x < CONFIG.levelW + 400; x += 620) ctx.fillText('P S O N   T R U N K   L I N E', x, g + 140);
+}
+
+function bodyShape(b){
+  ctx.beginPath();
+  const v = b.vertices;
+  ctx.moveTo(v[0].x, v[0].y);
+  for (let i = 1; i < v.length; i++) ctx.lineTo(v[i].x, v[i].y);
+  ctx.closePath();
+}
+
+function drawPart(b, alpha){
+  const m = b._mat; if (!m) return;
+  ctx.save();
+  ctx.globalAlpha = alpha * (m.alpha || 1);
+
+  if (b._sign){ drawSign(b); ctx.restore(); return; }
+  if (b._kind === 'barrel'){ drawBarrel(b, alpha); ctx.restore(); return; }
+
+  ctx.translate(b.position.x, b.position.y); ctx.rotate(b.angle);
+  const w = b._w, h = b._h, x = -w / 2, y = -h / 2;
+
+  ctx.fillStyle = m.fill; ctx.fillRect(x, y, w, h);
+
+  if (b._kind === 'wood'){
+    ctx.strokeStyle = 'rgba(0,0,0,0.16)'; ctx.lineWidth = 1.4;
+    const along = w > h;
+    const n = Math.max(2, Math.floor((along ? h : w) / 9));
+    for (let i = 1; i < n; i++){
+      const t = i / n;
+      ctx.beginPath();
+      if (along){ ctx.moveTo(x + 3, y + h * t); ctx.lineTo(x + w - 3, y + h * t); }
+      else { ctx.moveTo(x + w * t, y + 3); ctx.lineTo(x + w * t, y + h - 3); }
+      ctx.stroke();
+    }
+    ctx.fillStyle = m.edge;
+    if (along){ ctx.fillRect(x, y, 5, h); ctx.fillRect(x + w - 5, y, 5, h); }
+    else { ctx.fillRect(x, y, w, 5); ctx.fillRect(x, y + h - 5, w, 5); }
+  } else if (b._kind === 'glass'){
+    ctx.strokeStyle = m.edge; ctx.lineWidth = 2.4; ctx.strokeRect(x, y, w, h);
+    ctx.globalAlpha = alpha * 0.28; ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.moveTo(x + w * 0.1, y + h); ctx.lineTo(x + w * 0.42, y); ctx.lineTo(x + w * 0.6, y); ctx.lineTo(x + w * 0.28, y + h); ctx.closePath(); ctx.fill();
+  } else if (b._kind === 'concrete'){
+    /* Speckle positions are drawn once and kept on the body. Re-rolling them
+       every frame makes the stone crawl, and allocating an Rng per body per
+       frame is 600 objects a second for nothing. */
+    if (!b._speck){
+      const r = new Rng(hashStr(String(b.id)));
+      b._speck = [];
+      for (let i = 0; i < Math.min(30, (w * h) / 260); i++) b._speck.push([x + r.range(2, w - 4), y + r.range(2, h - 4)]);
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.13)';
+    for (const s of b._speck) ctx.fillRect(s[0], s[1], 3, 3);
+    ctx.fillStyle = 'rgba(246,239,226,0.14)'; ctx.fillRect(x, y, w, 4);
+    ctx.strokeStyle = m.edge; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+  } else if (b._kind === 'steel'){
+    ctx.fillStyle = 'rgba(246,239,226,0.16)'; ctx.fillRect(x, y, w, 5);
+    ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fillRect(x, y + h - 5, w, 5);
+    ctx.fillStyle = '#8fa3b8';
+    const along = w > h, n = Math.max(2, Math.floor((along ? w : h) / 34));
+    for (let i = 0; i < n; i++){
+      const t = (i + 0.5) / n;
+      const px = along ? x + w * t : 0, py = along ? 0 : y + h * t;
+      ctx.beginPath(); ctx.arc(px, py, 2.6, 0, 6.2832); ctx.fill();
+    }
+    ctx.strokeStyle = m.edge; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+  }
+
+  if (!b._frag && b._maxHp && b._hp < b._maxHp) drawCracks(b, x, y, w, h);
+  ctx.restore();
+}
+
+/* Damage is visible before it is fatal — the player should be able to see that a
+   support is nearly gone and choose to finish it rather than start again. */
+function drawCracks(b, x, y, w, h){
+  const t = 1 - b._hp / b._maxHp;
+  if (t < 0.15) return;
+  if (!b._cracks){                                    // five fixed cracks, revealed in order
+    const r = new Rng(hashStr(String(b.id) + 'c'));
+    b._cracks = [];
+    for (let i = 0; i < 5; i++){
+      let px = x + r.range(4, w - 4), py = y + r.range(4, h - 4);
+      const line = [[px, py]];
+      for (let k = 0; k < 3; k++){ px += r.range(-w / 4, w / 4); py += r.range(-h / 4, h / 4); line.push([px, py]); }
+      b._cracks.push(line);
+    }
+  }
+  ctx.strokeStyle = 'rgba(0,0,0,' + (0.22 + t * 0.5).toFixed(2) + ')';
+  ctx.lineWidth = 1 + t * 1.6;
+  const n = Math.ceil(t * 5);
+  for (let i = 0; i < n; i++){
+    const line = b._cracks[i];
+    ctx.beginPath(); ctx.moveTo(line[0][0], line[0][1]);
+    for (let k = 1; k < line.length; k++) ctx.lineTo(line[k][0], line[k][1]);
+    ctx.stroke();
+  }
+}
+
+function drawBarrel(b, alpha){
+  const r = b._r || b._w / 2;
+  ctx.translate(b.position.x, b.position.y); ctx.rotate(b.angle);
+  ctx.fillStyle = MATERIALS.barrel.fill;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.2832); ctx.fill();
+  ctx.strokeStyle = MATERIALS.barrel.edge; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(0, 0, r - 1.5, 0, 6.2832); ctx.stroke();
+  ctx.lineWidth = 2.6;
+  for (const o of [-r * 0.45, r * 0.45]){
+    ctx.beginPath(); ctx.moveTo(o, -r * 0.88); ctx.lineTo(o, r * 0.88); ctx.stroke();
+  }
+  /* A loose object gets an outline the static structure never has (GDD §10.2) —
+     this is the entire hint system and it needs no words. */
+  ctx.setLineDash([5, 5]); ctx.strokeStyle = 'rgba(255,225,77,0.55)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0, 0, r + 5, 0, 6.2832); ctx.stroke(); ctx.setLineDash([]);
+}
+
+/* Resolved once. getComputedStyle in a draw call forces a style recalc per sign
+   per frame, which is a measurable cost for a string that never changes. */
+const SIGN_FONT = '700 15px "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif';
+
+function drawSign(b){
+  const w = b._w, h = b._h, x = b.position.x - w / 2, y = b.position.y - h / 2;
+  ctx.fillStyle = '#6b5f52'; ctx.fillRect(b.position.x - 6, y + h, 12, CONFIG.groundY - (y + h));
+  ctx.fillStyle = '#f6efe2'; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = '#221d2e'; ctx.lineWidth = 3.5; ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+  ctx.fillStyle = '#221d2e';
+  ctx.font = SIGN_FONT;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(b._text, b.position.x, b.position.y + 1);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+}
+
+function drawChunk(b){
+  ctx.save();
+  ctx.fillStyle = '#8d7f6d'; bodyShape(b); ctx.fill();
+  ctx.strokeStyle = '#5d5346'; ctx.lineWidth = 2.4; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.beginPath(); ctx.arc(b.position.x - 4, b.position.y - 4, 4.5, 0, 6.2832); ctx.fill();
+  ctx.restore();
+}
+
+/* The camera is the pig. It must be the most readable object on screen: cold
+   blue-grey in a warm frame, an oversized lens, and a red light you can find. */
+function drawCam(c){
+  ctx.save();
+  ctx.translate(c.position.x, c.position.y);
+  ctx.rotate(c.angle);
+
+  const look = c._alive ? (c._sweep * (1 - c._look) + c._look * -0.55) : 0.5;
+  const w = CONFIG.camW, h = CONFIG.camH;
+
+  if (c._mount && !c._detached){
+    ctx.save(); ctx.fillStyle = '#4b4458';
+    ctx.fillRect(-4, h / 2 - 2, 8, 14); ctx.restore();
+  }
+
+  ctx.rotate(look);
+  ctx.fillStyle = c._alive ? '#3d4a5c' : '#43434b';
+  roundRect(-w / 2, -h / 2, w, h, 6); ctx.fill();
+  ctx.strokeStyle = c._alive ? '#222b38' : '#2c2c33'; ctx.lineWidth = 2.4;
+  roundRect(-w / 2, -h / 2, w, h, 6); ctx.stroke();
+
+  /* Sunshade — the silhouette detail that makes it a camera and not a box. */
+  ctx.fillStyle = c._alive ? '#556478' : '#4d4d55';
+  ctx.fillRect(-w / 2 - 3, -h / 2 - 5, w * 0.72, 6);
+
+  /* Lens. */
+  ctx.fillStyle = c._alive ? '#101820' : '#1a1a1e';
+  ctx.beginPath(); ctx.arc(-w / 2 + 1, 0, h * 0.42, 0, 6.2832); ctx.fill();
+  ctx.strokeStyle = c._alive ? '#8fd8e8' : '#55555e'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(-w / 2 + 1, 0, h * 0.42, 0, 6.2832); ctx.stroke();
+  if (c._alive){
+    ctx.fillStyle = 'rgba(143,216,232,0.55)';
+    ctx.beginPath(); ctx.arc(-w / 2 - 1, -3, 2.6, 0, 6.2832); ctx.fill();
+  } else {
+    ctx.strokeStyle = '#6d6d78'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-w / 2 - 7, -6); ctx.lineTo(-w / 2 + 8, 7);
+    ctx.moveTo(-w / 2 - 5, 7); ctx.lineTo(-w / 2 + 7, -7); ctx.stroke();
+  }
+
+  /* The light. On: it is looking at you. Off: it is not. */
+  if (c._alive){
+    const pulse = 0.55 + 0.45 * Math.sin(c._phase * 3);
+    ctx.fillStyle = '#ff3b52';
+    ctx.shadowColor = '#ff3b52'; ctx.shadowBlur = 9 * pulse;
+    ctx.beginPath(); ctx.arc(w / 2 - 6, -h / 2 + 6, 3.1, 0, 6.2832); ctx.fill();
+    ctx.shadowBlur = 0;
+  } else {
+    ctx.fillStyle = '#2a2a30';
+    ctx.beginPath(); ctx.arc(w / 2 - 6, -h / 2 + 6, 3.1, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = '#6d6d78'; ctx.lineWidth = 1.8;   // a dangling wire
+    ctx.beginPath(); ctx.moveTo(w / 2 - 2, h / 2 - 2);
+    ctx.quadraticCurveTo(w / 2 + 8, h / 2 + 6, w / 2 + 3, h / 2 + 15); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function roundRect(x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawLauncher(){
+  const x = CONFIG.launchX, y = CONFIG.launchY, g = CONFIG.groundY;
+  ctx.save();
+  ctx.fillStyle = '#4b3f36'; ctx.fillRect(x - 46, y + 34, 92, g - y - 34);
+  ctx.fillStyle = '#5d5044'; ctx.fillRect(x - 52, y + 26, 104, 12);
+
+  /* Nico. Silhouette rule: identifiable by the board under his arm. */
+  const bob = Math.sin(S.elapsed * 0.002) * 1.6;
+  ctx.fillStyle = '#221d2e';
+  ctx.fillRect(x - 40, y - 30 + bob, 15, 34);              // body
+  ctx.beginPath(); ctx.arc(x - 32, y - 36 + bob, 9, 0, 6.2832); ctx.fill();   // head
+  ctx.fillRect(x - 44, y + 4 + bob, 6, 24); ctx.fillRect(x - 30, y + 4 + bob, 6, 24);
+  ctx.fillStyle = '#ffe14d'; ctx.fillRect(x - 41, y - 44 + bob, 18, 6);       // cap
+  ctx.fillStyle = '#ff5a3c'; ctx.fillRect(x - 58, y - 14 + bob, 28, 7);       // board
+  ctx.fillStyle = '#221d2e';
+  ctx.beginPath(); ctx.arc(x - 52, y - 5 + bob, 3, 0, 6.2832);
+  ctx.arc(x - 36, y - 5 + bob, 3, 0, 6.2832); ctx.fill();
+
+  /* The sling. */
+  ctx.strokeStyle = '#6b4f3a'; ctx.lineWidth = 8; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x - 14, y + 30); ctx.lineTo(x - 14, y - 16);
+  ctx.moveTo(x + 14, y + 30); ctx.lineTo(x + 14, y - 22); ctx.stroke();
+
+  if (S.phase === 'aim' && S.toolsLeft > 0){
+    const p = S.aiming ? slingPoint() : { x, y };
+    ctx.strokeStyle = '#3a2b20'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(x - 14, y - 16); ctx.lineTo(p.x, p.y);
+    ctx.moveTo(x + 14, y - 22); ctx.lineTo(p.x, p.y); ctx.stroke();
+
+    ctx.fillStyle = '#8d7f6d';
+    ctx.beginPath(); ctx.arc(p.x, p.y, TOOLS.chunk.radius, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = '#5d5346'; ctx.lineWidth = 2.4; ctx.stroke();
+
+    if (!S.aiming){
+      const t = (S.elapsed % 1400) / 1400;
+      ctx.strokeStyle = 'rgba(255,225,77,' + (0.6 * (1 - t)).toFixed(2) + ')';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(x, y, TOOLS.chunk.radius + 6 + t * 26, 0, 6.2832); ctx.stroke();
+    }
+  }
+  ctx.lineCap = 'butt';
+  ctx.restore();
+}
+
+function slingPoint(){
+  const d = dragVector();
+  return { x: CONFIG.launchX - d.x, y: CONFIG.launchY - d.y };
+}
+
+/* Drag vector, clamped — the launch velocity is exactly `power` times this. */
+function dragVector(){
+  if (!S.dragFrom || !S.dragTo) return { x: 0, y: 0 };
+  let dx = S.dragFrom.x - S.dragTo.x, dy = S.dragFrom.y - S.dragTo.y;
+  const len = Math.hypot(dx, dy);
+  if (len > CONFIG.maxPull){ dx = dx / len * CONFIG.maxPull; dy = dy / len * CONFIG.maxPull; }
+  return { x: dx, y: dy };
+}
+
+function drawAim(){
+  const d = dragVector();
+  if (Math.hypot(d.x, d.y) < 6) return;
+  const pts = predict(d.x * CONFIG.power, d.y * CONFIG.power, 190);
+  ctx.save();
+  for (let i = 0; i < pts.length; i += 5){
+    const t = i / pts.length;
+    ctx.globalAlpha = 0.85 * (1 - t);
+    ctx.fillStyle = '#f6efe2';
+    ctx.beginPath(); ctx.arc(pts[i].x, pts[i].y, 3.6 * (1 - t * 0.55), 0, 6.2832); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  /* Power read-out on the sling itself, so the eye never leaves the shot. */
+  const pw = Math.hypot(d.x, d.y) / CONFIG.maxPull;
+  const p = slingPoint();
+  ctx.strokeStyle = 'rgba(34,29,46,0.35)'; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.arc(p.x, p.y, 25, -1.5708, -1.5708 + 6.2832 * 1); ctx.stroke();
+  ctx.strokeStyle = pw > 0.94 ? '#ff5a3c' : '#ffe14d';
+  ctx.beginPath(); ctx.arc(p.x, p.y, 25, -1.5708, -1.5708 + 6.2832 * pw); ctx.stroke();
+  ctx.restore();
+}
+
+function drawTrail(pts, colour){
+  if (!pts || pts.length < 2) return;
+  ctx.save(); ctx.fillStyle = colour;
+  for (const p of pts){ ctx.beginPath(); ctx.arc(p.x, p.y, 2.6, 0, 6.2832); ctx.fill(); }
+  ctx.restore();
+}
+
+function drawParticles(){
+  ctx.save();
+  for (const p of S.particles){
+    ctx.globalAlpha = Math.max(0, 1 - p.life / p.max);
+    ctx.fillStyle = p.c;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ─── 9 · INPUT ──────────────────────────────────────────────────────────────
+   One verb: drag back and release (GDD R1). A drag that starts near the sling
+   aims; a drag that starts anywhere else pans the view, so looking around never
+   costs a shot and never needs a button. */
+
+function pointerPos(e){
+  const r = cv.getBoundingClientRect();
+  return { sx: e.clientX - r.left, sy: e.clientY - r.top };
+}
+
+cv.addEventListener('pointerdown', e => {
+  if (!S || !playing) return;
+  Audio_.arm();
+  cv.setPointerCapture(e.pointerId);
+  const { sx, sy } = pointerPos(e);
+  const w = worldFromScreen(sx, sy);
+  const near = Math.hypot(w.x - CONFIG.launchX, w.y - CONFIG.launchY) < CONFIG.aimGrabR;
+  if (near && S.phase === 'aim' && S.toolsLeft > 0){
+    S.aiming = true;
+    S.dragFrom = { x: CONFIG.launchX, y: CONFIG.launchY };
+    S.dragTo = w;
+  } else {
+    S.panFrom = { sx, sy, cam: S.camX };
+  }
+});
+
+cv.addEventListener('pointermove', e => {
+  if (!S) return;
+  const { sx, sy } = pointerPos(e);
+  if (S.aiming) S.dragTo = worldFromScreen(sx, sy);
+  else if (S.panFrom){
+    S.camX = S.panFrom.cam - (sx - S.panFrom.sx) / zoom;
+    S.camXTarget = S.camX;
+    clampCam();
+  }
+});
+
+function endPointer(){
+  if (!S) return;
+  if (S.aiming){
+    const d = dragVector();
+    S.aiming = false; S.dragFrom = S.dragTo = null;
+    if (Math.hypot(d.x, d.y) > 12) launch(d.x * CONFIG.power, d.y * CONFIG.power);
+  }
+  S.panFrom = null;
+}
+cv.addEventListener('pointerup', endPointer);
+cv.addEventListener('pointercancel', endPointer);
+cv.addEventListener('contextmenu', e => e.preventDefault());
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'r' || e.key === 'R'){ if (playing) restart(); }
+  else if (e.key === 'Escape'){ if (playing) openSelect(); }
+  else if (e.key === 'm' || e.key === 'M'){ toggleMute(); }
+});
+
+function clampCam(){
+  const hw = halfViewW();
+  const lo = Math.min(hw, CONFIG.levelW / 2), hi = Math.max(CONFIG.levelW - hw, CONFIG.levelW / 2);
+  S.camX = Math.max(lo, Math.min(hi, S.camX));
+}
+
+/* ─── 10 · SHELL ─────────────────────────────────────────────────────────────
+   Screens and transitions. The shell never touches the simulation; it starts it,
+   stops it, and reads it. */
+
+const $ = id => document.getElementById(id);
+let playing = false, current = 0, acc = 0, lastT = 0;
+
+function show(id){
+  for (const s of document.querySelectorAll('.screen')) s.classList.toggle('on', s.id === id);
+  $('hud').classList.toggle('on', id === null || id === '');
+}
+function hideScreens(){ for (const s of document.querySelectorAll('.screen')) s.classList.remove('on'); $('hud').classList.add('on'); }
+
+function startLevel(i){
+  current = i;
+  S = buildLevel(i);
+  breakQueue.length = 0;
+  playing = true;
+  hideScreens();
+  $('lvlName').textContent = S.def.name;
+  $('parLine').textContent = 'PAR ' + S.def.par + ' · ' + S.def.tools + ' TOOLS';
+  syncTools(); syncCamPips();
+  clampCam();
+  if (i === 0) scheduleHint();
+}
+
+function restart(){ startLevel(current); }
+
+function syncTools(){
+  const el = $('tools'); el.innerHTML = '';
+  for (let i = 0; i < S.def.tools; i++){
+    const d = document.createElement('div');
+    d.className = 'tool' + (i < S.toolsUsed ? ' spent' : '');
+    el.appendChild(d);
+  }
+}
+function syncCamPips(){
+  const el = $('cams'); el.innerHTML = '';
+  for (const c of S.cams){
+    const d = document.createElement('div');
+    d.className = 'cam' + (c._alive ? '' : ' off');
+    el.appendChild(d);
+  }
+}
+
+let hintTimer = null;
+function scheduleHint(){
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => { if (playing && S && S.toolsUsed === 0) $('hint').classList.add('on'); }, 2600);
+}
+function hideHint(){ clearTimeout(hintTimer); $('hint').classList.remove('on'); }
+
+function showWon(stars){
+  playing = false;
+  $('starRow').innerHTML = [0, 1, 2].map(i => i < stars ? '<b>★</b>' : '★').join('');
+  $('wonTitle').textContent = stars === 3 ? 'Elegant' : stars === 2 ? 'Effective' : 'It counts';
+  $('wonSub').textContent = S.toolsUsed + (S.toolsUsed === 1 ? ' tool used' : ' tools used') + ' · par ' + S.def.par;
+  $('wonFlavour').textContent = new Rng(hashStr(S.def.id + S.toolsUsed)).pick(FLAVOUR);
+  $('bNext').style.display = current + 1 < LEVELS.length ? '' : 'none';
+  show('won');
+  let n = 0;
+  const ping = () => { if (n < stars){ Audio_.play('STAR', 0.8 + n * 0.1); n++; setTimeout(ping, 260); } };
+  setTimeout(ping, 180);
+}
+
+function showLost(){
+  playing = false;
+  const left = S.aliveCams;
+  $('lostSub').textContent = left + (left === 1 ? ' camera' : ' cameras') + ' still watching · out of tools';
+  show('lost');
+}
+
+function openSelect(){
+  playing = false;
+  const g = $('tiles'); g.innerHTML = '';
+  LEVELS.forEach((l, i) => {
+    const locked = i + 1 > Save.data.unlocked;
+    const st = Save.starsFor(l.id);
+    const d = document.createElement('div');
+    d.className = 'tile' + (locked ? ' locked' : '');
+    d.innerHTML = '<div class="n">' + (i + 1) + '</div><div class="t">' + (locked ? 'Locked' : l.name) +
+                  '</div><div class="s">' + (st ? '★'.repeat(st) + '☆'.repeat(3 - st) : '☆☆☆') + '</div>';
+    if (!locked) d.onclick = () => { Audio_.arm(); Audio_.play('UI'); startLevel(i); };
+    g.appendChild(d);
+  });
+  const tot = Save.total();
+  $('totalStars').textContent = tot + ' / ' + (LEVELS.length * 3) + ' stars';
+  show('select');
+}
+
+function toggleMute(){
+  Audio_.arm();
+  Audio_.setMuted(!Audio_.muted);
+  $('bMute').textContent = Audio_.muted ? '♪̸' : '♪';
+  $('bMute').style.opacity = Audio_.muted ? 0.45 : 1;
+}
+
+$('bPlay').onclick = () => { Audio_.arm(); Audio_.play('UI'); startLevel(Math.min(Save.data.unlocked - 1, LEVELS.length - 1)); };
+$('bSelect').onclick = () => { Audio_.arm(); openSelect(); };
+$('bBack').onclick = () => show('title');
+$('bNext').onclick = () => { Audio_.play('UI'); startLevel(Math.min(current + 1, LEVELS.length - 1)); };
+$('bReplay').onclick = () => { Audio_.play('UI'); restart(); };
+$('bAgain').onclick = () => { Audio_.play('UI'); restart(); };
+$('bSel2').onclick = openSelect;
+$('bSel3').onclick = openSelect;
+$('bRestart').onclick = restart;
+$('bMenu').onclick = openSelect;
+$('bMute').onclick = toggleMute;
+
+/* ─── The frame ──────────────────────────────────────────────────────────────
+   Fixed step with an accumulator and a long-frame clamp, so a suspended tab does
+   not resume by simulating four seconds at once (AirportBaggageCrew's clock). */
+function frame(t){
+  requestAnimationFrame(frame);
+  const dt = Math.min(CONFIG.maxCatchUpMs, t - lastT || 16);
+  lastT = t;
+  if (S){
+    if (S.hitStop > 0) S.hitStop -= dt;
+    else {
+      const scale = S.slowmo > 0 ? 0.35 : 1;
+      acc += dt * scale;
+      let guard = 0;
+      while (acc >= CONFIG.stepMs && guard++ < 8){ step(CONFIG.stepMs); acc -= CONFIG.stepMs; }
+    }
+    S.camX += (S.camXTarget - S.camX) * 0.07;
+    clampCam();
+    draw();
+  }
+  cv.style.cursor = (S && playing && S.phase === 'aim') ? 'grab' : 'default';
+}
+
+/* ─── Boot ───────────────────────────────────────────────────────────────── */
+Audio_.init();
+Save.load();
+resize();
+S = buildLevel(0);               // a live level behind the title screen
+$('bMute').textContent = Audio_.muted ? '♪̸' : '♪';
+$('bMute').style.opacity = Audio_.muted ? 0.45 : 1;
+requestAnimationFrame(frame);
+
+/* ─── Self-test ──────────────────────────────────────────────────────────────
+   Assertions that need a real browser: that no level shakes itself apart on load,
+   that the aim preview matches what the solver actually does, and that every
+   level's par is reachable by a shot somebody could aim. Run from the console or
+   a harness: `await BS.selfTest()`. Numbers, not vibes. */
+window.BS = {
+  CONFIG, LEVELS, MATERIALS, TOOLS, G_STEP, Save,
+  get state(){ return S; },
+  startLevel, restart, predict, starsFor,
+  headless(i){ S = headlessLevel(i); return S; },
+  shot(vx, vy){ replayShot({ vx, vy }); return S; },
+  /* Fire into the LIVE level and advance exactly N steps — poses the world
+     mid-collapse so a still can be taken of it. */
+  fire(vx, vy, steps){ launch(vx, vy); for (let k = 0; k < (steps || 0); k++) step(CONFIG.stepMs); return S; },
+  tick(n){ for (let k = 0; k < (n || 1); k++) step(CONFIG.stepMs); return S; },
+  /* Aim in the units a player uses: degrees above horizontal, 0..1 of full pull. */
+  aim(deg, pull){ const a = -deg * Math.PI / 180, p = CONFIG.maxPull * pull * CONFIG.power;
+                  return [Math.cos(a) * p, Math.sin(a) * p]; },
+
+  /* Does a level stand still on its own? Without this the impact floor is a
+     guess: a tower that damages itself while settling loses the level on load,
+     and nobody would see why. Counts SOLID parts — signs are static billboards
+     and prove nothing about a stack. */
+  settleTest(){
+    const out = [];
+    for (let i = 0; i < LEVELS.length; i++){
+      const want = LEVELS[i].parts.filter(p => p[0] !== 'sign' && p[0] !== 'cam').length;
+      S = headlessLevel(i);
+      for (let k = 0; k < 120; k++) step(CONFIG.stepMs);        // 2 s, well past the grace
+      const got = S.parts.filter(p => !p._sign).length;
+      let maxV = 0;
+      for (const b of Composite.allBodies(world)){
+        if (b.isStatic || b.isSleeping) continue;
+        maxV = Math.max(maxV, Math.hypot(b.velocity.x, b.velocity.y));
+      }
+      out.push({ level: LEVELS[i].id, parts: want + '→' + got,
+                 cams: S.aliveCams + '/' + S.cams.length, maxSpeed: +maxV.toFixed(3),
+                 ok: got === want && S.aliveCams === S.cams.length && maxV < 1.0 });
+    }
+    return out;
+  },
+
+  /* Is the dotted arc the truth? Fire, and compare against the prediction the
+     player was shown. A preview that drifts is worse than no preview. */
+  previewTest(vx = 14, vy = -11){
+    S = headlessLevel(0);
+    const pred = predict(vx, vy, 40);
+    launch(vx, vy);
+    const got = [];
+    for (let k = 0; k < 40; k++){ step(CONFIG.stepMs); got.push({ x: S.proj.position.x, y: S.proj.position.y }); }
+    let worst = 0;
+    const n = Math.min(pred.length, got.length);
+    for (let k = 0; k < n; k++) worst = Math.max(worst, Math.hypot(pred[k].x - got[k].x, pred[k].y - got[k].y));
+    return { samples: n, worstErrorPx: +worst.toFixed(3), ok: worst < 1.0 };
+  },
+
+  /* Sweep angles and powers to find the fewest shots that clear each level.
+     A par nobody has hit is a guess (GDD §19), so this is what turns the star
+     thresholds into a measured claim. Greedy: take the best single shot, then
+     the best next shot from the world that shot left behind. */
+  async solveTest(opts = {}){
+    const angles = opts.angles || 26, powers = opts.powers || 5;
+    const only = opts.only == null ? null : opts.only;
+    const results = [];
+    for (let i = 0; i < LEVELS.length; i++){
+      if (only !== null && i !== only) continue;
+      const def = LEVELS[i];
+      const budget = Math.min(opts.maxShots || def.tools, def.tools);
+      const script = [];
+      let cleared = false, trace = [];
+      while (script.length < budget && !cleared){
+        let best = null;
+        for (let a = 0; a < angles && !cleared; a++){
+          for (let p = 0; p < powers; p++){
+            const ang = (-82 + a * (76 / (angles - 1))) * Math.PI / 180;
+            const pw = CONFIG.maxPull * (0.5 + 0.5 * (p / (powers - 1)));
+            const vx = Math.cos(ang) * pw * CONFIG.power, vy = Math.sin(ang) * pw * CONFIG.power;
+            S = headlessLevel(i);
+            for (const s of script) replayShot(s);
+            const c0 = S.aliveCams, n0 = solidCount(), h0 = structureHp();
+            replayShot({ vx, vy });
+            const sc = progressScore(c0, n0, h0);
+            if (!best || sc.score > best.score) best = { vx, vy, ...sc };
+            if (S.aliveCams === 0){ best = { vx, vy, ...sc }; cleared = true; break; }
+          }
+        }
+        /* Scored on PROGRESS, not on kills. Hard Hat Area's intended first shot
+           kills nothing at all — it takes a leg out so the slab can do the work
+           — and a solver that only rewards kills calls that level impossible. */
+        if (!best || best.score <= 0) break;
+        script.push({ vx: best.vx, vy: best.vy });
+        trace.push('k' + best.killed + ' b' + best.broke + ' hp' + Math.round(best.hurt));
+        await new Promise(r => setTimeout(r, 0));       // let the tab breathe
+      }
+      results.push({ level: def.id, name: def.name, par: def.par, tools: def.tools,
+                     solvedIn: cleared ? script.length : null, trace,
+                     ok: cleared && script.length <= def.par });
+    }
+    return results;
+  },
+
+  async all(opts){
+    const settle = this.settleTest(), preview = this.previewTest(), solve = await this.solveTest(opts);
+    const fails = [...settle.filter(r => !r.ok).map(r => 'settle:' + r.level),
+                   ...(preview.ok ? [] : ['preview']),
+                   ...solve.filter(r => !r.ok).map(r => 'par:' + r.level)];
+    return { settle, preview, solve, fails, pass: fails.length === 0 };
+  },
+};
+
+/* How much did that shot achieve? A dead camera dominates, a broken part earns
+   real credit, and DAMAGE DEALT carries the rest — which is what lets the search
+   find a collapse that takes two hits to set up.
+
+   Displacement is deliberately worth almost nothing. Scored on movement, the
+   search fixates on the loose barrel: a drum rolling four hundred pixels outruns
+   every shot that actually hurts the structure, and the level reads as
+   unsolvable while a perfectly good route sits one rock away. */
+function structureHp(){
+  let hp = 0;
+  for (const b of S.parts) if (b._hp > 0 && !b._sign) hp += b._hp;
+  for (const c of S.cams) if (c._alive) hp += c._hp;
+  return hp;
+}
+
+/* Signs are scenery. Counting one as a broken part told the search that shooting
+   a billboard was progress, and it happily spent its first rock on the Ministry's
+   own signage every time. */
+function solidCount(){ let n = 0; for (const b of S.parts) if (!b._sign) n++; return n; }
+
+function progressScore(cams0, parts0, hp0){
+  let moved = 0;
+  for (const b of S.parts){
+    if (b._sign || b._loose || b._x0 == null) continue;
+    moved += Math.hypot(b.position.x - b._x0, b.position.y - b._y0);
+  }
+  const killed = cams0 - S.aliveCams, broke = parts0 - solidCount();
+  const hurt = Math.max(0, hp0 - structureHp());
+  return { killed, broke, hurt: +hurt.toFixed(1), moved,
+           score: killed * 1000 + broke * 60 + hurt + moved * 0.05 };
+}
+
+/* A level with no DOM, no save writes and no result cards. */
+function headlessLevel(i){
+  const st = buildLevel(i);
+  st.headless = true;
+  st.toolsLeft = 99;                  // the solver manages its own budget
+  return st;
+}
+
+/* Fire a shot and run the world forward until it settles — the headless version
+   of taking a turn. */
+function replayShot(s){
+  launch(s.vx, s.vy);
+  for (let k = 0; k < 420; k++){
+    step(CONFIG.stepMs);
+    if (S.aliveCams === 0) return;
+    if (S.phase !== 'live') break;
+  }
+  if (S.proj){ Composite.remove(world, S.proj); S.proj = null; }
+  S.phase = 'aim';
+}
+</script>
+</body>
+</html>
